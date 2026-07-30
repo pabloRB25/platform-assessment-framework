@@ -1,13 +1,13 @@
 # Metodología de Assessment y Evaluación de Plataformas de Software
-## Marco Híbrido Estandarizado para Software Studios
+## Marco Híbrido Estandarizado para Software Studios (Incluye Auditoría de Código Generado por IA / Agentes)
 
 ---
 
 ### 1. Visión General de la Metodología
 
-Esta metodología ha sido diseñada por y para **Studios de Desarrollo de Software de Alto Rendimiento**. Combina la velocidad y practicidad requeridas en consultoría técnica con el rigor de los estándares globales más reconocidos de la industria (**ISO/IEC 25010, OWASP SAMM, DORA, AWS Well-Architected, SRE y TOGAF**).
+Esta metodología ha sido diseñada por y para **Studios de Desarrollo de Software de Alto Rendimiento**. Combina la velocidad y practicidad requeridas en consultoría técnica con el rigor de los estándares globales más reconocidos de la industria (**ISO/IEC 25010, OWASP SAMM, DORA, AWS Well-Architected, SRE, TOGAF y Marcos de Gobernanza para IA / Agentes**).
 
-El objetivo es evaluar holísticamente una plataforma tecnológica a través de **8 dimensiones clave**, generando una calificación cuantitativa por dimensión y una **Calificación General de la Plataforma (Platform Health Score)**, acompañada de un diagnóstico cualitativo y priorización de riesgos.
+El objetivo es evaluar holísticamente una plataforma tecnológica a través de **9 dimensiones clave**, generando una calificación cuantitativa por dimensión y una **Calificación General de la Plataforma (Platform Health Score)**, acompañada de un diagnóstico cualitativo y priorización de riesgos.
 
 ---
 
@@ -23,6 +23,7 @@ El objetivo es evaluar holísticamente una plataforma tecnológica a través de 
 | **D6** | **DevOps, CI/CD e Infraestructura** | Despliegue y Cloud | Métricas DORA, AWS/GCP/Azure Well-Architected |
 | **D7** | **Observabilidad, Operaciones y Resiliencia** | Monitoreo y SRE | Google SRE Principles, OpenTelemetry |
 | **D8** | **Gobernanza, Riesgos y Deuda Técnica** | Negocio y Sostenibilidad | ISO 31000 (Riesgos), Cuadrante de Deuda Técnica |
+| **DAI**| **Código Agéntico e Inteligencia Artificial**| Calidad y Seguridad de Código generado por IA | OWASP AI Safety, Mutation Testing, SLSA, Provenance |
 
 ---
 
@@ -76,6 +77,13 @@ El objetivo es evaluar holísticamente una plataforma tecnológica a través de 
 * **D8.3 Gobernanza de Dependencia de Personas:** Bus Factor (riesgo por concentración de conocimiento en individuos clave).
 * **D8.4 Cuadrante de Deuda Técnica:** Priorización de deuda (Prudente/Reconsiderada vs. Temeraria/Inadvertida).
 
+#### DAI: Módulo Especializado de Código Agéntico e Inteligencia Artificial
+* **DAI.1 Verificación Anti-Alucinación y Supply Chain (Slopsquatting):** Garantía de que todas las librerías generadas por LLMs/Agentes existan en registros oficiales y no sean vectores de confusión de dependencias.
+* **DAI.2 Robustez ante Casos Borde (Mitigación de Happy-Path Bias):** Verificación de que el código generado por IA contenga manejo explícito de fallos de red, timeouts, casos nulos e imprevistos en I/O.
+* **DAI.3 Cohesión y Duplicación Agéntica (Snippet Isolation):** Detección de código repetido u over-engineering producido por agentes al trabajar en archivos aislados sin contexto global.
+* **DAI.4 Aserción Real en Pruebas Generadas por IA:** Verificación de que las suites de prueba generadas por IA contengan aserciones verdaderas de lógica y no sean "pruebas fantasma" creadas solo para inflar métricas de cobertura.
+* **DAI.5 Gobernanza y Supervisión Humana (Human-in-the-Loop):** Presencia de marcas de procedencia, etiquetado de commits e inspección de pares sobre código producido por IA.
+
 ---
 
 ### 4. Sistema de Calificación y Algoritmo de Scoring
@@ -96,22 +104,23 @@ $$SD_k = \sum_{i=1}^{n} (sd_i \times w_i) \quad \text{donde} \quad \sum w_i = 1$
 
 #### 4.3 Cálculo de la Calificación General de la Plataforma (Platform Health Score)
 
-La Calificación General ($PHS$) es el promedio ponderado de las 8 dimensiones:
+La Calificación General ($PHS$) es el promedio ponderado de las 9 dimensiones:
 
-$$PHS = \sum_{k=1}^{8} (SD_k \times W_k) \quad \text{donde} \quad \sum W_k = 1$$
+$$PHS = \sum_{k=1}^{9} (SD_k \times W_k) \quad \text{donde} \quad \sum W_k = 1$$
 
 #### Pesos por Defecto según Tipo de Plataforma ($W_k$):
 
-| Dimensión | Ponderación General (SaaS/Core) | Ponderación Fintech/Misión Crítica | Ponderación MVP/Startup |
+| Dimensión | Ponderación General (SaaS/Core) | Ponderación Fintech/Misión Crítica | Ponderación AI-Native / Agentic |
 | :--- | :---: | :---: | :---: |
-| **D1: Arquitectura e Integración** | 15% | 15% | 15% |
-| **D2: Código Fuente y Mantenibilidad** | 15% | 10% | 20% |
-| **D3: Seguridad Aplicativa y DevSecOps** | 15% | 25% | 10% |
-| **D4: Base de Datos y Datos** | 15% | 15% | 10% |
+| **D1: Arquitectura e Integración** | 12% | 15% | 10% |
+| **D2: Código Fuente y Mantenibilidad** | 12% | 10% | 10% |
+| **D3: Seguridad Aplicativa y DevSecOps** | 15% | 20% | 15% |
+| **D4: Base de Datos y Datos** | 12% | 15% | 10% |
 | **D5: Calidad y Estrategia QA** | 10% | 10% | 10% |
-| **D6: DevOps e Infraestructura** | 10% | 10% | 15% |
-| **D7: Observabilidad y SRE** | 10% | 10% | 5% |
-| **D8: Gobernanza y Riesgos** | 10% | 5% | 5% |
+| **D6: DevOps e Infraestructura** | 10% | 10% | 10% |
+| **D7: Observabilidad y SRE** | 10% | 10% | 10% |
+| **D8: Gobernanza y Riesgos** | 9% | 5% | 5% |
+| **DAI: Código Agéntico e IA** | 10% | 5% | 20% |
 | **TOTAL** | **100%** | **100%** | **100%** |
 
 ---
@@ -132,5 +141,5 @@ $$PHS = \sum_{k=1}^{8} (SD_k \times W_k) \quad \text{donde} \quad \sum W_k = 1$$
 
 1. **Executive Dashboard (Score & Radar Chart):** Gráfico de araña con el nivel por dimensión y PHS general.
 2. **Technical Deep-Dive Report:** Detalle línea por línea de hallazgos por sub-dimensión con evidencia de código e infraestructura.
-3. **Risk & Vulnerability Matrix:** Listado de hallazgos clasificados por impacto y probabilidad.
+3. **AI Code Integrity & Risk Audit:** Reporte específico sobre la calidad de código agéntico y prevención de alucinaciones/slopsquatting.
 4. **Remediation Roadmap (Prioridad vs. Esfuerzo):** Matriz 2x2 para orientar la inversión del cliente en mejoras inmediatas (Quick Wins), a mediano plazo y proyectos estratégicos.

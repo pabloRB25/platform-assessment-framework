@@ -1,5 +1,5 @@
 # Informe Final de Assessment de Plataforma Tecnológica
-## Diagnóstico de Calidad, Arquitectura, Seguridad y Madurez Operativa
+## Diagnóstico de Calidad, Arquitectura, Seguridad, Código Agéntico (IA) y Madurez Operativa
 
 **Fecha de Evaluación:** {{EVALUATION_DATE}}  
 **Plataforma / Proyecto:** {{PROJECT_NAME}}  
@@ -26,10 +26,20 @@
 | **D6** | DevOps, CI/CD e Infraestructura | {{D6_SCORE}} | {{D6_WEIGHT}} | {{D6_STATUS}} |
 | **D7** | Observabilidad y SRE | {{D7_SCORE}} | {{D7_WEIGHT}} | {{D7_STATUS}} |
 | **D8** | Gobernanza, Riesgos y Deuda | {{D8_SCORE}} | {{D8_WEIGHT}} | {{D8_STATUS}} |
+| **DAI**| Código Agéntico e IA | {{DAI_SCORE}} | {{DAI_WEIGHT}} | {{DAI_STATUS}} |
 
 ---
 
-### 2. Hallazgos Críticos y Matriz de Riesgos
+### 2. Auditoría de Código Generado por IA (Módulo DAI)
+
+* **Riesgo de Dependencias (Slopsquatting):** {{DAI_SLOPSQUATTING_STATUS}}
+* **Robustez de Casos Borde (Happy-Path Bias):** {{DAI_HAPPYPATH_STATUS}}
+* **Pruebas Fantasma (Phantom Tests):** {{DAI_PHANTOMTESTS_STATUS}}
+* **Supervisión Humana (Human-in-the-Loop):** {{DAI_HITL_STATUS}}
+
+---
+
+### 3. Hallazgos Críticos y Matriz de Riesgos
 
 | ID Hallazgo | Dimensión | Severidad | Descripción del Hallazgo / Brecha | Evidencia Técnica |
 | :--- | :--- | :---: | :--- | :--- |
@@ -38,13 +48,13 @@
 
 ---
 
-### 3. Detalle de Evaluación por Dimensión
+### 4. Detalle de Evaluación por Dimensión
 
-*(Poblado automáticamente con los resultados de cada ejecución D1-D8)*
+*(Poblado automáticamente con los resultados de cada ejecución D1-D8 y DAI)*
 
 ---
 
-### 4. Roadmap de Remediación Priorizado (Matriz 2x2)
+### 5. Roadmap de Remediación Priorizado (Matriz 2x2)
 
 * **Ganancias Rápida (Quick Wins - Alto Impacto / Bajo Esfuerzo):**
   * {{QUICK_WINS}}

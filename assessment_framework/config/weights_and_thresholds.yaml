@@ -1,6 +1,6 @@
 # Configuración de Ponderaciones y Umbrales del Assessment
-framework_version: "2.0.0"
-author: "Studio Architecture & Quality Practice"
+framework_version: "2.1.0"
+author: "Studio Architecture & AI Engineering Practice"
 
 scoring_scale:
   min: 1.0
@@ -16,38 +16,41 @@ profiles:
   general_saas:
     name: "SaaS / Plataforma Core General"
     weights:
-      D1: 0.15 # Arquitectura e Integración
-      D2: 0.15 # Código y Mantenibilidad
+      D1: 0.12 # Arquitectura e Integración
+      D2: 0.12 # Código y Mantenibilidad
       D3: 0.15 # Seguridad y DevSecOps
-      D4: 0.15 # Base de Datos y Datos
+      D4: 0.12 # Base de Datos y Datos
       D5: 0.10 # Calidad y QA
       D6: 0.10 # DevOps e Infraestructura
       D7: 0.10 # Observabilidad y Resiliencia
-      D8: 0.10 # Gobernanza y Riesgos
+      D8: 0.09 # Gobernanza y Riesgos
+      DAI: 0.10 # Código Agéntico e IA
 
   fintech_critical:
     name: "Fintech / Misión Crítica / Alta Seguridad"
     weights:
       D1: 0.15
       D2: 0.10
-      D3: 0.25 # Alta ponderación a Seguridad
+      D3: 0.20 # Alta ponderación a Seguridad
       D4: 0.15
       D5: 0.10
       D6: 0.10
       D7: 0.10
       D8: 0.05
+      DAI: 0.05
 
-  mvp_startup:
-    name: "MVP / Startup Etapa Temprana"
+  ai_native_agentic:
+    name: "Plataforma AI-Native / Código Agéntico Intensivo"
     weights:
-      D1: 0.15
-      D2: 0.20 # Enfoque en velocidad y Clean Code
-      D3: 0.10
+      D1: 0.10
+      D2: 0.10
+      D3: 0.15
       D4: 0.10
       D5: 0.10
-      D6: 0.15
-      D7: 0.05
+      D6: 0.10
+      D7: 0.10
       D8: 0.05
+      DAI: 0.20 # Máxima ponderación en Auditoría de IA y Agentes
 
 thresholds:
   enterprise_ready: 4.5

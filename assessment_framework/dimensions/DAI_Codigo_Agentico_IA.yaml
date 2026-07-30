@@ -1,0 +1,66 @@
+dimension_id: "DAI"
+name: "Código Agéntico e Inteligencia Artificial"
+description: "Evaluación de la calidad, seguridad, proveniencia y robustez de código generado por Agentes de IA (LLMs)"
+standards_reference:
+  - "OWASP Top 10 for LLM Applications & Generative AI Output Security"
+  - "SLSA (Supply-chain Levels for Software Artifacts) — Provenance & Build Integrity"
+  - "Mutation Testing Standards (Stryker / PITest)"
+  - "ISO/IEC 25010 Software Quality Model"
+
+sub_dimensions:
+  - id: "DAI.1"
+    name: "Verificación Anti-Alucinación y Supply Chain (Slopsquatting)"
+    weight: 0.25
+    agent_checks:
+      - check_type: "grep_search"
+        query: "rejectUnauthorized:\\s*false|NODE_TLS_REJECT_UNAUTHORIZED|verify=False"
+        paths: ["src/"]
+      - check_type: "package_registry_audit"
+    rubric:
+      1.0: "Presencia de dependencias alucinadas o configuraciones de seguridad deshabilitadas por IA"
+      3.0: "Dependencias auditadas contra registros públicos oficiales; lockfiles estrictos mantenidos"
+      5.0: "Registro de paquetes verificado, lista blanca estricta y firma de proveniencia"
+
+  - id: "DAI.2"
+    name: "Robustez ante Casos Borde (Mitigación de Happy-Path Bias)"
+    weight: 0.20
+    agent_checks:
+      - check_type: "grep_search"
+        query: "async.*\\{([^c]|c[^a]|ca[^t])*\\}|await.*without.*catch"
+        paths: ["src/"]
+    rubric:
+      1.0: "Código sin captura de excepciones ni timeouts en llamadas asíncronas de red"
+      3.0: "Manejo de errores y comprobación de valores nulos en flujos principales"
+      5.0: "Manejo robusto de excepciones, timeouts explícitos y retries con exponential backoff"
+
+  - id: "DAI.3"
+    name: "Cohesión y Duplicación Agéntica (Snippet Isolation & DRY)"
+    weight: 0.20
+    agent_checks:
+      - check_type: "semantic_duplication_analysis"
+    rubric:
+      1.0: "Alta duplicación de utilidades por falta de visibilidad del contexto global por la IA"
+      3.0: "Módulos compartidos utilizados en la mayoría de características"
+      5.0: "Código conciso, reutilizando el 100% de utilidades existentes sin redundancias"
+
+  - id: "DAI.4"
+    name: "Aserción Real en Pruebas Generadas por IA (Anti-Phantom Tests)"
+    weight: 0.20
+    agent_checks:
+      - check_type: "grep_search"
+        query: "expect\\(true\\)\\.toBe\\(true\\)|assert True|// TODO: add assertions"
+        paths: ["src/", "tests/"]
+    rubric:
+      1.0: "Pruebas fantasma creadas para inflar cobertura sin aserciones reales de negocio"
+      3.0: "Pruebas generadas por IA con aserciones válidas de retornos y excepciones"
+      5.0: "Mutation Testing ejecutado en CI para garantizar la efectividad real de la suite de pruebas"
+
+  - id: "DAI.5"
+    name: "Gobernanza y Supervisión Humana (Human-in-the-Loop)"
+    weight: 0.15
+    agent_checks:
+      - check_type: "git_pr_review_analysis"
+    rubric:
+      1.0: "Código generado por IA fusionado directamente sin revisión humana de pares"
+      3.0: "PRs generados por IA revisados obligatoriamente por al menos un desarrollador senior"
+      5.0: "Política de gobernanza agéntica establecida, commits marcados y revisión Human-in-the-Loop"
