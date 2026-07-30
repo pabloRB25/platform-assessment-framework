@@ -1,0 +1,61 @@
+dimension_id: "D4"
+name: "Base de Datos y Gestión de Datos"
+description: "Evaluación del modelado de datos, rendimiento de consultas, migraciones y alta disponibilidad"
+standards_reference:
+  - "ACID and BASE Consistency Models"
+  - "PostgreSQL / MySQL Performance Tuning Guidelines"
+  - "ISO/IEC 11179 Information technology — Metadata registries"
+  - "AWS Well-Architected Framework Reliability & Performance Pillars"
+
+sub_dimensions:
+  - id: "D4.1"
+    name: "Modelado, Normalización y Tipado"
+    weight: 0.25
+    agent_checks:
+      - check_type: "file_exists"
+        patterns: ["*schema*", "*migration*", "prisma/schema.prisma", "*.sql"]
+      - check_type: "grep_search"
+        query: "FOREIGN KEY|CONSTRAINT|REFERENCES"
+        paths: ["src/", "migrations/"]
+    rubric:
+      1.0: "Sin llaves foráneas ni restricciones de integridad; tipos de datos genéricos e inadecuados"
+      3.0: "Modelo relacional correcto en 3NF con restricciones básicas de integridad"
+      5.0: "Modelado optimizado, tipos de datos eficientes e integridad garantizada por esquema"
+
+  - id: "D4.2"
+    name: "Rendimiento de Consultas e Indexación"
+    weight: 0.30
+    agent_checks:
+      - check_type: "grep_search"
+        query: "SELECT \\*|for.*in.*:\\s*.*objects\\.get|foreach.*find"
+        paths: ["src/"]
+      - check_type: "grep_search"
+        query: "CREATE INDEX|index:|@Index"
+        paths: ["src/", "migrations/"]
+    rubric:
+      1.0: "Consultas SELECT * masivas, N+1 consultas en bucles y ausencia de índices"
+      3.0: "Índices en llaves primarias/foráneas; problema N+1 mitigado en flujos críticos"
+      5.0: "Consultas optimizadas con índices avanzados y pool de conexiones (PgBouncer/HikariCP)"
+
+  - id: "D4.3"
+    name: "Migraciones y Versionamiento de Esquema"
+    weight: 0.25
+    agent_checks:
+      - check_type: "file_exists"
+        patterns: ["flyway*", "liquibase*", "knexfile*", "alembic.ini", "prisma/migrations"]
+    rubric:
+      1.0: "Cambios de base de datos manuales directos en producción sin control de versiones"
+      3.0: "Herramienta de migraciones de código presente en el repositorio"
+      5.0: "Migraciones automáticas en CI/CD con cambios retrocompatibles (Zero Downtime)"
+
+  - id: "D4.4"
+    name: "Escalabilidad, Alta Disponibilidad y Resiliencia (HA/DRP)"
+    weight: 0.20
+    agent_checks:
+      - check_type: "grep_search"
+        query: "multi_az|read_replica|backup_retention|rds"
+        paths: ["infra/", "terraform/"]
+    rubric:
+      1.0: "Instancia única sin réplicas ni estrategia de respaldos automáticos"
+      3.0: "Base de datos administrada cloud con Multi-AZ y respaldos diarios"
+      5.0: "Multi-AZ con réplicas de lectura segregadas, backups continuos y RPO/RTO probados"

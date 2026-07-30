@@ -1,0 +1,67 @@
+dimension_id: "D3"
+name: "Seguridad Aplicativa y DevSecOps"
+description: "Evaluación de vulnerabilidades de código, gestión de secretos, autenticación y seguridad en la cadena de suministro"
+standards_reference:
+  - "OWASP Software Assurance Maturity Model (SAMM) v2.0"
+  - "OWASP Application Security Verification Standard (ASVS) v4.0"
+  - "OWASP Top 10 Web Application Security Risks"
+  - "Supply-chain Levels for Software Artifacts (SLSA)"
+
+sub_dimensions:
+  - id: "D3.1"
+    name: "Autenticación y Autorización"
+    weight: 0.25
+    agent_checks:
+      - check_type: "grep_search"
+        query: "jwt|oauth|bcrypt|argon2|passport|authorize|Bearer"
+        paths: ["src/"]
+      - check_type: "grep_search"
+        query: "md5|sha1|eval\\("
+        paths: ["src/"]
+    rubric:
+      1.0: "Algoritmos criptográficos obsoletos (MD5/SHA1), JWT sin firma o falta de comprobación de permisos"
+      3.0: "BCrypt/Argon2 y JWT con expiración adecuada; RBAC implementado pero con brechas menores"
+      5.0: "OAuth2/OIDC estándar, rotación de tokens, mTLS y control ABAC/RBAC estricto"
+
+  - id: "D3.2"
+    name: "Gestión de Secretos y Credenciales"
+    weight: 0.25
+    agent_checks:
+      - check_type: "grep_search"
+        query: "AKIA[0-9A-Z]{16}|aws_secret_access_key|postgres://.*:.*@|mongodb\\+srv://.*:.*@"
+        paths: ["src/", ".env*"]
+      - check_type: "file_exists"
+        patterns: [".gitleaks.toml", ".trufflehog.yaml"]
+    rubric:
+      1.0: "Secretos, claves API o contraseñas harcodeadas en código fuente o en Git"
+      3.0: "Variables de entorno utilizadas pero sin rotación automatizada ni uso de Key Vault"
+      5.0: "Uso de AWS Secrets Manager / Vault, rotación automática y escaneo continuo anti-secretos"
+
+  - id: "D3.3"
+    name: "Análisis de Dependencias (SCA)"
+    weight: 0.25
+    agent_checks:
+      - check_type: "file_exists"
+        patterns: ["package-lock.json", "yarn.lock", "Pipfile.lock", "go.sum", "pom.xml"]
+      - check_type: "grep_search"
+        query: "dependabot|snyk|trivy"
+        paths: [".github/", ".gitlab-ci.yml", "bitbucket-pipelines.yml"]
+    rubric:
+      1.0: "Dependencias obsoletas con CVEs críticos sin parchear y sin gestión de lockfiles"
+      3.0: "Lockfiles presentes; actualizaciones de seguridad realizadas manualmente"
+      5.0: "Escaneo SCA automatizado en CI/CD con bloqueo por CVEs y generación de SBOM"
+
+  - id: "D3.4"
+    name: "Sanitización, Input Validation e Inyección"
+    weight: 0.25
+    agent_checks:
+      - check_type: "grep_search"
+        query: "\\$query\\s*=\\s*\".*\\$|SELECT.*FROM.*\\+|eval\\(|dangerouslySetInnerHTML"
+        paths: ["src/"]
+      - check_type: "grep_search"
+        query: "zod|joi|class-validator|express-validator|helmet"
+        paths: ["src/"]
+    rubric:
+      1.0: "Vulnerabilidades manifiestas a SQL Injection, XSS o falta total de validación de entradas"
+      3.0: "ORM utilizado para evitar SQLi; validación básica de tipos en entradas"
+      5.0: "Validación estricta de esquemas, sanitización integral y cabeceras HTTP de seguridad (CSP, HSTS)"

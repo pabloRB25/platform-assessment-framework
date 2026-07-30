@@ -1,0 +1,58 @@
+dimension_id: "D5"
+name: "Calidad y Estrategia de QA"
+description: "Evaluación de la cobertura de pruebas unitarias, integración, automatización CI y gestión de entornos"
+standards_reference:
+  - "Test Automation Pyramid (Martin Fowler / Mike Cohn)"
+  - "ISTQB Software Testing Qualification Standard"
+  - "ISO/IEC/IEEE 29119 Software Testing Standard"
+  - "SonarQube Quality Gates & Code Coverage Guidelines"
+
+sub_dimensions:
+  - id: "D5.1"
+    name: "Cobertura de Pruebas Unitarias"
+    weight: 0.30
+    agent_checks:
+      - check_type: "file_exists"
+        patterns: ["*test*", "*spec*", "coverage/lcov.info", "clover.xml", "jacoco.xml"]
+      - check_type: "grep_search"
+        query: "expect\\(|assert|should|assertEquals"
+        paths: ["src/", "tests/"]
+    rubric:
+      1.0: "Cobertura de pruebas < 10% o archivos de test vacíos sin aserciones"
+      3.0: "Cobertura entre 30% y 60% con aserciones válidas en módulos principales"
+      5.0: "Cobertura de código > 80% en lógica de negocio con aserciones estrictas"
+
+  - id: "D5.2"
+    name: "Pruebas de Integración y E2E"
+    weight: 0.25
+    agent_checks:
+      - check_type: "file_exists"
+        patterns: ["cypress.json", "cypress.config.*", "playwright.config.*", "testcontainers*"]
+    rubric:
+      1.0: "Cero pruebas de integración o E2E; dependencia 100% de pruebas manuales"
+      3.0: "Pruebas de API de integración automatizadas presentes"
+      5.0: "Suites de integración y E2E automatizadas para todos los flujos críticos de negocio"
+
+  - id: "D5.3"
+    name: "Automatización en CI/CD y Gates de Calidad"
+    weight: 0.25
+    agent_checks:
+      - check_type: "grep_search"
+        query: "npm test|pytest|go test|mvn test|gradle test"
+        paths: [".github/", ".gitlab-ci.yml", "bitbucket-pipelines.yml"]
+    rubric:
+      1.0: "Pruebas ejecutadas solo manualmente en entornos locales"
+      3.0: "Pruebas ejecutadas automáticamente en el pipeline de CI"
+      5.0: "Quality Gate en CI obligatorio que bloquea la fusión ante fallos de test o caída de cobertura"
+
+  - id: "D5.4"
+    name: "Gestión de Datos y Entornos de Prueba"
+    weight: 0.20
+    agent_checks:
+      - check_type: "grep_search"
+        query: "mock|stub|factory|faker|testcontainers"
+        paths: ["tests/", "src/"]
+    rubric:
+      1.0: "Pruebas dependientes de datos o bases de datos de producción reales"
+      3.0: "Mocks y stubs utilizados; base de datos de test aislada"
+      5.0: "Entornos efímeros y aislados con generación automatizada de datos sintéticos"

@@ -1,0 +1,56 @@
+dimension_id: "D6"
+name: "DevOps, CI/CD e Infraestructura"
+description: "Evaluación de la automatización CI/CD, métricas DORA, Infraestructura como Código (IaC) y seguridad Cloud"
+standards_reference:
+  - "DORA Metrics (DevOps Research and Assessment - Google Cloud)"
+  - "AWS / GCP / Azure Well-Architected Framework Operational Excellence & Security Pillars"
+  - "CNCF Cloud Native Maturity Model"
+  - "CIS Benchmarks for AWS / Kubernetes"
+
+sub_dimensions:
+  - id: "D6.1"
+    name: "Automatización de Pipelines CI/CD"
+    weight: 0.30
+    agent_checks:
+      - check_type: "file_exists"
+        patterns: [".github/workflows/*.yml", ".gitlab-ci.yml", "bitbucket-pipelines.yml", "Jenkinsfile"]
+      - check_type: "grep_search"
+        query: "docker build|helm upgrade|aws ecs|kubectl apply|terraform apply"
+        paths: [".github/", ".gitlab-ci.yml", "bitbucket-pipelines.yml"]
+    rubric:
+      1.0: "Despliegues manuales directos por FTP/SSH sin pipeline automatizado"
+      3.0: "Pipeline automatizado para entornos de test; producción requiere intervención manual"
+      5.0: "Despliegues 100% automatizados con contenedores inmutables y estrategias Blue/Green o Canary"
+
+  - id: "D6.2"
+    name: "Métricas DORA (Velocidad y Estabilidad)"
+    weight: 0.25
+    agent_checks:
+      - check_type: "pipeline_history_analysis"
+    rubric:
+      1.0: "Low Performer: Despliegues mensuales, Lead Time > 1 mes, CFR > 30%"
+      3.0: "Medium Performer: Despliegues semanales, Lead Time < 1 semana, CFR 15-30%"
+      5.0: "Elite Performer: Despliegues diarios a demanda, Lead Time < 1 hora, CFR < 5%"
+
+  - id: "D6.3"
+    name: "Infraestructura como Código (IaC) y Entornos"
+    weight: 0.25
+    agent_checks:
+      - check_type: "file_exists"
+        patterns: ["*.tf", "serverless.yml", "template.yaml", "Dockerfile", "docker-compose.yml"]
+    rubric:
+      1.0: "Infraestructura aprovisionada manualmente por consola (ClickOps) con inconsistencias de entorno"
+      3.0: "Archivos de Terraform o Serverless presentes para la mayoría de componentes"
+      5.0: "100% de la infraestructura gestionada por IaC con estado remoto y paridad de entornos"
+
+  - id: "D6.4"
+    name: "Seguridad Cloud e IAM"
+    weight: 0.20
+    agent_checks:
+      - check_type: "grep_search"
+        query: "AdministratorAccess|\"\\*\"|0\\.0\\.0\\.0/0"
+        paths: ["infra/", "terraform/", ".github/"]
+    rubric:
+      1.0: "Permisos IAM con comodines (*), recursos expuestos directamente a internet sin firewall"
+      3.0: "Roles IAM específicos y Security Groups restringidos a puertos operativos"
+      5.0: "Mínimo privilegio estricto, subredes privadas, WAF configurado y registros auditables en CloudTrail"

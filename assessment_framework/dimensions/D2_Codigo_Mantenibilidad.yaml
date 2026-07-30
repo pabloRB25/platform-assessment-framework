@@ -1,0 +1,59 @@
+dimension_id: "D2"
+name: "Código Fuente y Mantenibilidad"
+description: "Evaluación de Clean Code, complejidad ciclomática, principios SOLID y manejo de errores"
+standards_reference:
+  - "ISO/IEC 25010 SQuaRE Maintainability Sub-characteristics"
+  - "Clean Code: A Handbook of Agile Software Craftsmanship"
+  - "SonarQube Rules and Quality Gates"
+  - "SOLID Principles"
+
+sub_dimensions:
+  - id: "D2.1"
+    name: "Estándares de Código y Modismos"
+    weight: 0.25
+    agent_checks:
+      - check_type: "file_exists"
+        patterns: [".eslintrc*", ".prettierrc*", "phpcs.xml", ".rubocop.yml", "pylintrc", "biome.json"]
+      - check_type: "grep_search"
+        query: "console.log|print_r|var_dump|System.out.println"
+        paths: ["src/"]
+    rubric:
+      1.0: "Sin herramientas de linting ni formato; código inconsistente y con logs de depuración abandonados"
+      3.0: "Configuración de linter presente pero no aplicada en CI; formato mayoritariamente limpio"
+      5.0: "Linting y formatting automatizados y obligatorios en CI con cero tolerancias"
+
+  - id: "D2.2"
+    name: "Deuda Técnica Estructural y Complejidad"
+    weight: 0.25
+    agent_checks:
+      - check_type: "find_large_files"
+        max_lines: 500
+      - check_type: "static_analysis"
+    rubric:
+      1.0: "Presencia de Clases Dios (> 1000 líneas), complejidad ciclomática > 15 y alta duplicación"
+      3.0: "Clases de tamaño moderado, métodos extensos puntuales y baja duplicación"
+      5.0: "Funciones pequeñas (< 30 líneas), complejidad < 5 y cero duplicación"
+
+  - id: "D2.3"
+    name: "Principios SOLID y Limpieza"
+    weight: 0.25
+    agent_checks:
+      - check_type: "grep_search"
+        query: "interface|implements|abstract class|Inject|Autowired"
+        paths: ["src/"]
+    rubric:
+      1.0: "Código fuertemente acoplado, uso masivo de singletons globales o código monolítico sin interfaces"
+      3.0: "Interfaces utilizadas en capas principales; desacoplamiento parcial"
+      5.0: "Inyección de dependencias estricta, alta cohesión y respeto de SOLID al 100%"
+
+  - id: "D2.4"
+    name: "Manejo de Errores y Excepciones"
+    weight: 0.25
+    agent_checks:
+      - check_type: "grep_search"
+        query: "catch\\s*\\([^)]*\\)\\s*\\{\\s*\\}|printStackTrace|catch\\s*\\(Throwable"
+        paths: ["src/"]
+    rubric:
+      1.0: "Captura silenciosa de excepciones o fuga de stack trace sensible a clientes"
+      3.0: "Excepciones manejadas pero con capturas genéricas e inconsistencias"
+      5.0: "Jerarquía de excepciones de dominio limpia y manejador global de errores"

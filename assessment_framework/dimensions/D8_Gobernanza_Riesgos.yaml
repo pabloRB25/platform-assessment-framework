@@ -1,0 +1,53 @@
+dimension_id: "D8"
+name: "Gobernanza, Riesgos y Deuda Técnica"
+description: "Evaluación de la obsolescencia tecnológica, documentación como código, Bus Factor y gestión de deuda técnica"
+standards_reference:
+  - "ISO 31000 Risk Management — Guidelines"
+  - "Technical Debt Quadrant (Martin Fowler)"
+  - "C4 Model for Visualizing Software Architecture"
+  - "ISO/IEC 27001 Security Controls A.8 & A.12"
+
+sub_dimensions:
+  - id: "D8.1"
+    name: "Riesgos Técnicos y Obsolescencia Tecnológica"
+    weight: 0.30
+    agent_checks:
+      - check_type: "version_check"
+        files: ["package.json", "Dockerfile", "pom.xml", "requirements.txt", "go.mod"]
+    rubric:
+      1.0: "Uso de versiones End-of-Life (EOL) descontinuadas sin soporte de seguridad"
+      3.0: "Versiones dentro del ciclo de vida soportado pero con retrasos en actualizaciones mayores"
+      5.0: "Stack tecnológico en versiones LTS vigentes con proceso automatizado de actualización"
+
+  - id: "D8.2"
+    name: "Documentación y Transferencia de Conocimiento"
+    weight: 0.25
+    agent_checks:
+      - check_type: "file_exists"
+        patterns: ["README.md", "ARCHITECTURE.md", "docs/*", "adrs/*", "docs/adr/*"]
+    rubric:
+      1.0: "Sin documentación o README desactualizado/vacío"
+      3.0: "README funcional con guía de instalación local y diagramas de arquitectura básicos"
+      5.0: "Documentación viva (ADRs), diagramas C4 y Runbooks operativos completos"
+
+  - id: "D8.3"
+    name: "Dependencia de Personas (Bus Factor)"
+    weight: 0.20
+    agent_checks:
+      - check_type: "git_commit_analysis"
+    rubric:
+      1.0: "Bus Factor = 1; concentración crítica de conocimiento en un solo desarrollador"
+      3.0: "Conocimiento compartido entre 2 o más miembros del equipo"
+      5.0: "Bus Factor > 3 personas con proceso de onboarding que permite desplegar en < 2 días"
+
+  - id: "D8.4"
+    name: "Gestión de Deuda Técnica"
+    weight: 0.25
+    agent_checks:
+      - check_type: "grep_search"
+        query: "TODO:|FIXME:|HACK:|XXX:"
+        paths: ["src/"]
+    rubric:
+      1.0: "Deuda técnica temeraria acumulada sin control ni visibilidad"
+      3.0: "Deuda técnica identificada y etiquetada en código con refactorizaciones periódicas"
+      5.0: "Capacidad de ingeniería dedicada por sprint (15-20%) para pagar deuda técnica priorizada"

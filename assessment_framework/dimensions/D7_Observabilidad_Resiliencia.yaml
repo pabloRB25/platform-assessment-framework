@@ -1,0 +1,61 @@
+dimension_id: "D7"
+name: "Observabilidad, Operaciones y Resiliencia"
+description: "Evaluación de logging estructurado, métricas APM, trazado distribuido, alertas SLO/SLI y planes DRP"
+standards_reference:
+  - "Google Site Reliability Engineering (SRE) Four Golden Signals"
+  - "OpenTelemetry Standard Specification"
+  - "ISO/IEC 27031 ICT Readiness for Business Continuity"
+  - "AWS Well-Architected Operational Excellence Pillar"
+
+sub_dimensions:
+  - id: "D7.1"
+    name: "Logging Estructurado y Centralización"
+    weight: 0.25
+    agent_checks:
+      - check_type: "grep_search"
+        query: "winston|pino|bunyan|logback|serilog|zerolog|structlog|json_formatter"
+        paths: ["src/"]
+      - check_type: "grep_search"
+        query: "X-Request-ID|X-Correlation-ID|traceparent"
+        paths: ["src/"]
+    rubric:
+      1.0: "Logs de texto plano guardados en disco local sin rotación ni estructura"
+      3.0: "Logs en formato JSON enviados a una plataforma de agregación centralizada"
+      5.0: "Logging estructurado uniforme con mascarado de PII y propagación de Trace-ID"
+
+  - id: "D7.2"
+    name: "Métricas y Monitoreo (Golden Signals)"
+    weight: 0.25
+    agent_checks:
+      - check_type: "grep_search"
+        query: "datadog|newrelic|prometheus|opentelemetry|sentry|dynatrace"
+        paths: ["src/"]
+    rubric:
+      1.0: "Sin herramientas de monitoreo ni recolección de métricas operativas"
+      3.0: "APM o Prometheus recolectando uso de CPU, Memoria y tasa de errores HTTP"
+      5.0: "Monitoreo integral de las 4 Señales Doradas SRE y dashboards personalizados"
+
+  - id: "D7.3"
+    name: "Trazado Distribuido y Alertas (SLO/SLI)"
+    weight: 0.25
+    agent_checks:
+      - check_type: "file_exists"
+        patterns: ["*grafana*", "*alerts*", "*pagerduty*", "*opsgenie*"]
+      - check_type: "grep_search"
+        query: "opentelemetry|jaeger|zipkin"
+        paths: ["src/"]
+    rubric:
+      1.0: "Sin alertas automáticas; dependiente de reportes de fallos por parte de usuarios"
+      3.0: "Alertas básicas configuradas por correo o Slack ante caídas del servidor"
+      5.0: "Trazado distribuido activo y alertas por consumo de Error Budget (SLOs) en PagerDuty"
+
+  - id: "D7.4"
+    name: "Continuidad del Negocio y Disaster Recovery (DRP)"
+    weight: 0.25
+    agent_checks:
+      - check_type: "file_exists"
+        patterns: ["*DRP*", "*disaster_recovery*", "*runbook*"]
+    rubric:
+      1.0: "Sin plan DRP documentado ni probado; tiempo de recuperación > 24 horas"
+      3.0: "Procedimiento de recuperación ante desastres documentado con backups diarios"
+      5.0: "Plan DRP automatizado con pruebas periódicas y failover probado (RPO < 15m, RTO < 1h)"
