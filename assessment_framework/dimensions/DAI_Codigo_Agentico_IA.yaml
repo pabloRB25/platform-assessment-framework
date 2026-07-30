@@ -1,66 +1,158 @@
 dimension_id: "DAI"
 name: "Código Agéntico e Inteligencia Artificial"
 description: "Evaluación de la calidad, seguridad, proveniencia y robustez de código generado por Agentes de IA (LLMs)"
+scope_note: "DAI evalúa SOLO código con atribución IA (definida por DAI.0). D2 evalúa el codebase completo — el mismo defecto nunca penaliza dos veces (double_counting_rules en weights_and_thresholds.yaml). Si no existe mecanismo de atribución, DAI opera sobre el código de los últimos 12 meses con confidence: low."
 standards_reference:
-  - "OWASP Top 10 for LLM Applications & Generative AI Output Security"
-  - "SLSA (Supply-chain Levels for Software Artifacts) — Provenance & Build Integrity"
+  - "OWASP Top 10 for LLM Applications (2025)"
+  - "OWASP Top 10:2025 — A03 Software Supply Chain Failures (conexión directa con DAI.1)"
+  - "SLSA v1.2 — Source Track L1-L4 (L4 two-party review = DAI.5) y Build Track (provenance)"
+  - "NIST SP 800-218A — Secure Software Development Practices for Generative AI"
+  - "DORA AI Capabilities Model (2025)"
   - "Mutation Testing Standards (Stryker / PITest)"
-  - "ISO/IEC 25010 Software Quality Model"
+  - "ISO/IEC 25010:2023 Software Quality Model"
 
 sub_dimensions:
+  - id: "DAI.0"
+    name: "Atribución y Trazabilidad de Código IA"
+    weight: 0.15
+    control_refs: ["SLSA v1.2 (provenance)", "NIST SP 800-218A (PO.5)"]
+    agent_checks:
+      - check_ref: "ai_attribution_analysis"
+        note: "Este check define el UNIVERSO sobre el que operan DAI.1-DAI.6: trailers de commit (Co-Authored-By), política en AGENTS.md/CLAUDE.md, etiquetas de PR"
+    nplf_criteria:
+      - "Existe un mecanismo verificable para identificar código generado por IA (trailers, etiquetas de PR o registro)"
+      - "Existe política escrita de uso de IA en el repo (AGENTS.md/CLAUDE.md/CONTRIBUTING) con reglas de atribución"
+      - "La atribución se aplica de forma consistente (muestreo del historial reciente)"
+      - "Las herramientas de IA permitidas y sus límites están definidos (qué pueden tocar y qué no)"
+    rubric:
+      1.0: "Sin ningún mecanismo de atribución; imposible saber qué código es de IA"
+      2.0: "Atribución esporádica dependiente del desarrollador individual"
+      3.0: "Trailers/etiquetas usados en la mayoría del trabajo asistido por IA"
+      4.0: "Política escrita + atribución consistente verificable en el historial"
+      5.0: "Política de gobernanza IA completa con atribución automática y auditable en cada commit/PR"
+
   - id: "DAI.1"
     name: "Verificación Anti-Alucinación y Supply Chain (Slopsquatting)"
-    weight: 0.25
+    weight: 0.20
+    critical: true
+    control_refs: ["OWASP Top 10:2025 A03 (Supply Chain)", "OWASP LLM Top 10 2025 — LLM03 (Supply Chain)", "SLSA v1.2 Build Track"]
     agent_checks:
-      - check_type: "grep_search"
+      - check_ref: "package_registry_audit"
+        note: "Contrato completo en checks_catalog.yaml: existencia en registro oficial, fecha de publicación, descargas, repo enlazado — la implementación ejecutable de lo que este módulo describía en prosa"
+      - check_ref: "grep_search"
         query: "rejectUnauthorized:\\s*false|NODE_TLS_REJECT_UNAUTHORIZED|verify=False"
         paths: ["src/"]
-      - check_type: "package_registry_audit"
+    nplf_criteria:
+      - "Toda dependencia directa existe en el registro oficial con historial creíble (evidencia: registry audit)"
+      - "Sin dependencias recientes de bajo uso con nombres similares a paquetes populares (typosquatting)"
+      - "Sin atajos de seguridad introducidos por IA (TLS deshabilitado, CORS *, verify=False)"
+      - "Lockfiles estrictos impiden resolución sorpresiva de paquetes"
+      - "Las dependencias nuevas pasan por revisión humana antes del merge (cruce DAI.5)"
     rubric:
       1.0: "Presencia de dependencias alucinadas o configuraciones de seguridad deshabilitadas por IA"
+      2.0: "Dependencias sin auditar contra registros; lockfile presente pero no exigido en CI"
       3.0: "Dependencias auditadas contra registros públicos oficiales; lockfiles estrictos mantenidos"
+      4.0: "Registry audit recurrente + revisión humana de dependencias nuevas"
       5.0: "Registro de paquetes verificado, lista blanca estricta y firma de proveniencia"
 
   - id: "DAI.2"
     name: "Robustez ante Casos Borde (Mitigación de Happy-Path Bias)"
-    weight: 0.20
+    weight: 0.15
+    control_refs: ["ISO/IEC 5055:2021 (Reliability)", "NIST SP 800-218A (PW.5)"]
+    scope: "Solo código con atribución IA (DAI.0); el codebase completo se evalúa en D2.4"
     agent_checks:
-      - check_type: "grep_search"
-        query: "async.*\\{([^c]|c[^a]|ca[^t])*\\}|await.*without.*catch"
-        paths: ["src/"]
+      - check_ref: "sast_scan"
+        note: "Semgrep con reglas sintácticas de async-sin-catch y promesas sin manejo — el regex por línea anterior (async.*\\{...\\}) no podía funcionar sobre bloques multilínea"
+      - check_ref: "code_judgment_review"
+        note: "Muestrear módulos IA-atribuidos: ¿manejan timeout, null, fallo de red?"
+    nplf_criteria:
+      - "Las llamadas asíncronas en código IA tienen manejo de error (evidencia: semgrep sobre el universo DAI.0)"
+      - "Las llamadas de red generadas por IA definen timeouts explícitos"
+      - "Los valores null/undefined y colecciones vacías se manejan en los flujos generados"
+      - "Los reintentos (si existen) tienen límite y backoff"
     rubric:
       1.0: "Código sin captura de excepciones ni timeouts en llamadas asíncronas de red"
+      2.0: "Manejo de errores presente solo donde el humano lo agregó después"
       3.0: "Manejo de errores y comprobación de valores nulos en flujos principales"
+      4.0: "Manejo consistente de errores/timeouts en el universo IA; excepciones puntuales"
       5.0: "Manejo robusto de excepciones, timeouts explícitos y retries con exponential backoff"
 
   - id: "DAI.3"
     name: "Cohesión y Duplicación Agéntica (Snippet Isolation & DRY)"
-    weight: 0.20
+    weight: 0.10
+    control_refs: ["ISO/IEC 25010:2023 (Reusability)"]
+    scope: "Solo código con atribución IA (DAI.0); la duplicación global se mide en D2.2"
     agent_checks:
-      - check_type: "semantic_duplication_analysis"
+      - check_ref: "duplication_scan"
+        note: "jscpd acotado al universo IA-atribuido o a los módulos creados en el período agéntico; comparar contra la línea base de D2.2"
+    nplf_criteria:
+      - "El código IA reutiliza las utilidades existentes del proyecto (sin re-implementar formateo/HTTP/validación)"
+      - "Duplicación en el universo IA <= duplicación base del proyecto (no la empeora)"
+      - "Sin over-engineering evidente (abstracciones sin segundo uso, patrones innecesarios)"
     rubric:
       1.0: "Alta duplicación de utilidades por falta de visibilidad del contexto global por la IA"
+      2.0: "Duplicación IA notablemente superior a la línea base del proyecto"
       3.0: "Módulos compartidos utilizados en la mayoría de características"
+      4.0: "Reutilización consistente; duplicación IA en línea con la base del proyecto"
       5.0: "Código conciso, reutilizando el 100% de utilidades existentes sin redundancias"
 
   - id: "DAI.4"
     name: "Aserción Real en Pruebas Generadas por IA (Anti-Phantom Tests)"
-    weight: 0.20
+    weight: 0.15
+    control_refs: ["Mutation Testing Standards", "ISO/IEC/IEEE 29119-4"]
     agent_checks:
-      - check_type: "grep_search"
+      - check_ref: "grep_search"
         query: "expect\\(true\\)\\.toBe\\(true\\)|assert True|// TODO: add assertions"
         paths: ["src/", "tests/"]
+        note: "T1 — detecta tautologías obvias"
+      - check_ref: "mutation_testing"
+        note: "La única evidencia T2 de que las pruebas detectan fallos reales (cruce D5.1)"
+    nplf_criteria:
+      - "Cero aserciones tautológicas en las suites (evidencia: grep + muestreo)"
+      - "Las pruebas generadas verifican comportamiento de negocio, no solo que 'no explota'"
+      - "Mutation score de los módulos con tests IA > 50%"
+      - "La cobertura declarada es consistente con el mutation score (sin inflado)"
     rubric:
       1.0: "Pruebas fantasma creadas para inflar cobertura sin aserciones reales de negocio"
+      2.0: "Aserciones débiles dominantes (solo toBeDefined/not.toThrow)"
       3.0: "Pruebas generadas por IA con aserciones válidas de retornos y excepciones"
+      4.0: "Aserciones de comportamiento + mutation testing ejecutado como baseline"
       5.0: "Mutation Testing ejecutado en CI para garantizar la efectividad real de la suite de pruebas"
 
   - id: "DAI.5"
     name: "Gobernanza y Supervisión Humana (Human-in-the-Loop)"
     weight: 0.15
+    control_refs: ["SLSA v1.2 Source Track L4 (two-party review — exactamente este control)", "NIST SP 800-218A (PO.2)", "DORA AI Capabilities Model"]
     agent_checks:
-      - check_type: "git_pr_review_analysis"
+      - check_ref: "git_pr_review_analysis"
+        note: "Sobre PRs con contenido IA-atribuido (DAI.0): ¿tuvieron revisión humana sustantiva? (cruce D9.2)"
+    nplf_criteria:
+      - "Todo PR con código IA recibe revisión humana de un autor distinto antes del merge"
+      - "La revisión es sustantiva (comentarios/cambios solicitados en la muestra, no rubber-stamp)"
+      - "El enforcement es de plataforma (branch protection), no de costumbre — SLSA Source L4"
+      - "Los cambios IA en rutas críticas (auth, pagos, infra) tienen revisión reforzada"
     rubric:
       1.0: "Código generado por IA fusionado directamente sin revisión humana de pares"
+      2.0: "Revisión humana esporádica dependiente del desarrollador"
       3.0: "PRs generados por IA revisados obligatoriamente por al menos un desarrollador senior"
-      5.0: "Política de gobernanza agéntica establecida, commits marcados y revisión Human-in-the-Loop"
+      4.0: "Two-party review con enforcement de plataforma sobre todo el código IA"
+      5.0: "SLSA Source L4 + política de gobernanza agéntica establecida, commits marcados y revisión Human-in-the-Loop"
+
+  - id: "DAI.6"
+    name: "Seguridad de Features LLM en Runtime (condicional)"
+    weight: 0.10
+    conditional: "Solo aplica si la plataforma integra LLMs en runtime (chatbots, generación, agentes). Si no aplica: marcar N/A y redistribuir el peso proporcionalmente entre las demás sub-dimensiones DAI (no cuenta como N/D)."
+    control_refs: ["OWASP LLM Top 10 2025 — LLM01 Prompt Injection, LLM02 Insecure Output Handling, LLM06 Sensitive Information Disclosure", "NIST SP 800-218A"]
+    agent_checks:
+      - check_ref: "llm_feature_security_review"
+    nplf_criteria:
+      - "El input del usuario no se concatena sin control a prompts de sistema (mitigación de prompt injection)"
+      - "El output del LLM se trata como no confiable: sanitizado antes de renderizar/ejecutar/persistir"
+      - "Los prompts no exponen secretos ni datos personales innecesarios al proveedor del modelo"
+      - "Las acciones que el LLM puede disparar (tools/funciones) tienen autorización propia, no heredada ciegamente"
+    rubric:
+      1.0: "Input de usuario directo al prompt de sistema y output del LLM ejecutado/renderizado sin sanitizar"
+      2.0: "Mitigaciones parciales sin diseño deliberado"
+      3.0: "Separación básica de prompts y sanitización de output en flujos principales"
+      4.0: "Controles LLM01/LLM02/LLM06 implementados y revisados"
+      5.0: "Amenazas LLM modeladas, controles testeados y monitoreo de abuso en producción"

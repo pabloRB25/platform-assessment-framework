@@ -5,9 +5,15 @@
 
 ### 1. Visión General de la Metodología
 
-Esta metodología ha sido diseñada por y para **Studios de Desarrollo de Software de Alto Rendimiento**. Combina la velocidad y practicidad requeridas en consultoría técnica con el rigor de los estándares globales más reconocidos de la industria (**ISO/IEC 25010, OWASP SAMM, DORA, AWS Well-Architected, SRE, TOGAF y Marcos de Gobernanza para IA / Agentes**).
+Esta metodología ha sido diseñada por y para **Studios de Desarrollo de Software de Alto Rendimiento**. Combina la velocidad y practicidad requeridas en consultoría técnica con el rigor de los estándares globales más reconocidos de la industria (**ISO/IEC 25010:2023, ISO/IEC 5055:2021, OWASP SAMM v2.1 / ASVS 5.0, DORA, AWS Well-Architected, SRE, SLSA v1.2 y Marcos de Gobernanza para IA / Agentes**).
 
-El objetivo es evaluar holísticamente una plataforma tecnológica a través de **9 dimensiones clave**, generando una calificación cuantitativa por dimensión y una **Calificación General de la Plataforma (Platform Health Score)**, acompañada de un diagnóstico cualitativo y priorización de riesgos.
+El objetivo es evaluar holísticamente una plataforma tecnológica a través de **10 dimensiones clave**, generando una calificación cuantitativa por dimensión y una **Calificación General de la Plataforma (Platform Health Score)**, acompañada **siempre** del conteo de hallazgos de alto riesgo (HRIs), un diagnóstico cualitativo y la priorización de riesgos.
+
+**Tres principios rectores del scoring:**
+
+1. **Lo crítico no se promedia.** Siguiendo ISO/IEC 33020, TMMi y AWS Well-Architected (que cuenta HRIs y jamás promedia), cualquier sub-dimensión crítica con score ≤ 2.0 **acota el PHS reportable a 2.9** ("En Riesgo"). Una plataforma con secretos en producción no puede salir "Estable" por promedio.
+2. **Presencia de strings ≠ verdad.** La evidencia se clasifica en tiers: T1 (señales grep/file_exists, techo 3.0), T2 (métricas de herramienta reproducibles) y T3 (juicio experto con citas `archivo:línea`). Los scores altos exigen T2/T3.
+3. **Reproducibilidad ante todo.** Cada sub-dimensión se califica con el método **NPLF (ISO/IEC 33020)** sobre criterios binarios explícitos — dos corridas del mismo assessment deben dar el mismo resultado.
 
 ---
 
@@ -15,131 +21,181 @@ El objetivo es evaluar holísticamente una plataforma tecnológica a través de 
 
 | Código | Dimensión | Capa Evaluada | Estándares e Instrumentos de Referencia |
 | :--- | :--- | :--- | :--- |
-| **D1** | **Arquitectura e Integración** | Estructura, Patrones y APIs | TOGAF, ATAM (SEI), IEEE 42010, OpenAPI Spec |
-| **D2** | **Código Fuente y Mantenibilidad** | Aplicación y Clean Code | ISO/IEC 25010 (Mantenibilidad), SonarQube Rules |
-| **D3** | **Seguridad Aplicativa y DevSecOps** | Ciberseguridad y Protección | OWASP SAMM, OWASP ASVS, OWASP Top 10, SLSA |
-| **D4** | **Base de Datos y Gestión de Datos** | Persistencia y Modelado | ACID/BASE, DB Tuning Guidelines, ISO/IEC 11179 |
-| **D5** | **Calidad y Estrategia de QA** | Pruebas y Cobertura | Pirámide de Cobertura, ISTQB, ISO/IEC/IEEE 29119 |
-| **D6** | **DevOps, CI/CD e Infraestructura** | Despliegue y Cloud | Métricas DORA, AWS/GCP/Azure Well-Architected |
-| **D7** | **Observabilidad, Operaciones y Resiliencia** | Monitoreo y SRE | Google SRE Principles, OpenTelemetry |
-| **D8** | **Gobernanza, Riesgos y Deuda Técnica** | Negocio y Sostenibilidad | ISO 31000 (Riesgos), Cuadrante de Deuda Técnica |
-| **DAI**| **Código Agéntico e Inteligencia Artificial**| Calidad y Seguridad de Código generado por IA | OWASP AI Safety, Mutation Testing, SLSA, Provenance |
+| **D1** | **Arquitectura e Integración** | Estructura, Patrones y APIs | TOGAF, ATAM (SEI), ISO/IEC/IEEE 42010:2022, ISO/IEC/IEEE 42030:2019, OpenAPI 3.1 |
+| **D2** | **Código Fuente y Mantenibilidad** | Aplicación y Clean Code | ISO/IEC 25010:2023 (Mantenibilidad), ISO/IEC 5055:2021, SonarQube Rules |
+| **D3** | **Seguridad Aplicativa y DevSecOps** | Ciberseguridad y Protección | OWASP SAMM v2.1, ASVS 5.0.0, Top 10:2025, API Security Top 10 (2023), SLSA v1.2 |
+| **D4** | **Base de Datos y Gestión de Datos** | Persistencia, Modelado y Privacidad | ACID/BASE, DB Tuning, ISO/IEC 5055, AWS WA (Datos), GDPR / Ley 8968 CR |
+| **D5** | **Calidad y Estrategia de QA** | Pruebas, Cobertura y Performance | Pirámide de Cobertura, ISTQB, ISO/IEC/IEEE 29119, Mutation Testing |
+| **D6** | **DevOps, CI/CD e Infraestructura** | Despliegue, Cloud y Costos | DORA (5 métricas, benchmark 2024), AWS/GCP/Azure WA, CIS v7.0, FinOps Framework |
+| **D7** | **Observabilidad, Operaciones y Resiliencia** | Monitoreo y SRE | Google SRE Principles, OpenTelemetry, ISO/IEC 27031 |
+| **D8** | **Gobernanza, Riesgos y Deuda Técnica** | Negocio y Sostenibilidad | ISO 31000, ISO 27001:2022 (Anexo A 8.25-8.34), ISO 5055 + ATDM2, C4 Model |
+| **D9** | **SDLC y Gestión del Cambio** | Proceso de Desarrollo | SLSA v1.2 Source Track (L1-L4), Conventional Commits, ISO/IEC 12207 |
+| **DAI**| **Código Agéntico e Inteligencia Artificial**| Calidad y Seguridad de Código generado por IA | OWASP LLM Top 10 (2025), Top 10:2025 A03, SLSA v1.2, NIST SP 800-218A, DORA AI Capabilities |
 
 ---
 
 ### 3. Detalle de Dimensiones y Sub-Dimensiones
 
 #### D1: Arquitectura e Integración
-* **D1.1 Patrones de Arquitectura:** Coherencia de arquitectura (Monolito modular, Microservicios, Event-Driven, Serverless) con las necesidades del negocio.
+* **D1.1 Patrones de Arquitectura:** Coherencia de arquitectura verificada contra el **código real** (no contra la documentación aspiracional) vía review de conformidad + grafo de dependencias.
 * **D1.2 Integración y APIs:** Calidad en diseño de contratos (REST, GraphQL, gRPC), versionamiento, idempotencia y rate limiting.
-* **D1.3 Acoplamiento y Cohesión:** Modularidad, independencia de despliegue y separación de capas (Domain-Driven Design).
+* **D1.3 Acoplamiento y Cohesión:** Modularidad y bounded contexts medidos con herramienta (madge/deptrac/ArchUnit) — cero ciclos como criterio duro.
 * **D1.4 Escala y Resiliencia de Diseño:** Manejo de fallos en cascada, circuit breakers, retries con backoff y patrones de concurrencia.
 
 #### D2: Código Fuente y Mantenibilidad
-* **D2.1 Estándares de Código y Modismos:** Uso de linters, formateadores automáticos, convención de nombres y patrones propios del stack.
-* **D2.2 Deuda Técnica Estructural:** Complejidad ciclomática, duplicación de código, métodos/clases Dios y code smells.
-* **D2.3 Principios SOLID y Limpieza:** Aplicación de principios SOLID, DRY, KISS y YAGNI.
-* **D2.4 Manejo de Errores y Excepciones:** Control estructurado de errores, manejo de casos de borde y log de excepciones sin datos sensibles.
+*(Califica el codebase completo; los defectos de código IA-atribuido van a DAI — sin doble conteo.)*
+* **D2.1 Estándares de Código y Modismos:** Linters/formateadores **aplicados como gate en CI**, no solo presentes.
+* **D2.2 Deuda Técnica Estructural:** Complejidad (lizard/radon) y duplicación (jscpd) **medidas**, no estimadas.
+* **D2.3 Principios SOLID y Limpieza:** Evaluado por lectura real de diseño (T3), no por conteo de keywords.
+* **D2.4 Manejo de Errores y Excepciones:** Capturas silenciosas y async sin manejo detectados con análisis sintáctico (Semgrep).
 
-#### D3: Seguridad Aplicativa y DevSecOps (OWASP SAMM / ASVS)
-* **D3.1 Autenticación y Autorización:** Implementación de OAuth2/OIDC, JWT, RBAC/ABAC y principio de mínimo privilegio.
-* **D3.2 Gestión de Secretos:** Ausencia de credenciales en código, uso de Key Vaults/Secret Managers y rotación de llaves.
-* **D3.3 Análisis de Dependencias (SCA):** Gestión de componentes de terceros, vulnerabilidades conocidas (CVEs) y licencias.
-* **D3.4 Sanitización e Inyección:** Protección contra SQLi, XSS, CSRF, SSRF y validación de entrada/salida (*Zero Trust*).
+#### D3: Seguridad Aplicativa y DevSecOps (SAMM v2.1 / ASVS 5.0)
+* **D3.1 Autenticación y Autorización:** OAuth2/OIDC, tokens, RBAC/ABAC — ASVS 5.0 V6/V8/V9/V10. *(crítica)*
+* **D3.2 Gestión de Secretos:** gitleaks sobre el **historial completo** de git + verificación de credencial viva (TruffleHog). *(crítica)*
+* **D3.3 Dependencias, Licencias y Supply Chain (SCA):** CVEs + inventario de licencias (GPL/AGPL en SaaS = riesgo legal) + SBOM, en una sola pasada de trivy/osv-scanner.
+* **D3.4 Sanitización e Inyección:** SQLi/XSS/SSRF con SAST sintáctico + validación de esquemas. *(crítica)*
+* **D3.5 Seguridad de APIs en Runtime:** **BOLA/BFLA** (OWASP API Top 10 2023, API1/API5) — autorización a nivel de objeto y de función, auditada endpoint por endpoint. *(crítica)*
 
 #### D4: Base de Datos y Gestión de Datos
-* **D4.1 Modelado y Normalización:** Diseño conceptual/lógico/físico, normalización adecuada y uso correcto de tipos de datos.
-* **D4.2 Rendimiento de Consultas e Indexación:** Estrategias de indexación, consultas N+1, uso de ORMs y optimización de execution plans.
-* **D4.3 Migraciones y Versionamiento:** Control de cambios en esquemas (Flyway, Liquibase, ORM Migrations) y despliegues sin tiempo de caída (*Zero Downtime*).
-* **D4.4 Escalabilidad y Alta Disponibilidad:** Réplicas de lectura, sharding, conexión pooling, backups y tiempo de recuperación (RPO/RTO).
+* **D4.1 Modelado y Normalización:** Integridad por esquema, tipado adecuado.
+* **D4.2 Rendimiento de Consultas e Indexación:** N+1, índices por patrón de acceso, pooling.
+* **D4.3 Migraciones y Versionamiento:** Migraciones versionadas, expand-contract, zero downtime.
+* **D4.4 Escalabilidad y Alta Disponibilidad:** Réplicas, backups **probados**, RPO/RTO.
+* **D4.5 Protección de Datos Personales:** Inventario de PII, cifrado, derecho de supresión (GDPR / Ley 8968 CR), anonimización en test.
 
 #### D5: Calidad y Estrategia de QA
-* **D5.1 Cobertura de Pruebas Unitarias:** Cobertura efectiva de código y calidad de los tests (evitando falsos positivos).
-* **D5.2 Pruebas de Integración y E2E:** Automatización de flujos críticos de negocio y aislamiento de entornos de prueba.
-* **D5.3 Automatización en CI:** Ejecución automática de suites de prueba como gate obligatorio para merges (*Branch Protection*).
-* **D5.4 Gestión de Datos de Prueba:** Estrategia de Mocks, Stubs y sanitización de datos de prueba.
+* **D5.1 Cobertura de Pruebas Unitarias:** Cobertura medida + **mutation testing** como verificación de efectividad.
+* **D5.2 Pruebas de Integración y E2E:** Flujos críticos automatizados corriendo en CI.
+* **D5.3 Automatización en CI:** Gates obligatorios con branch protection verificable.
+* **D5.4 Gestión de Datos de Prueba:** Mocks, datos sintéticos, sin PII real en test.
+* **D5.5 Pruebas de Rendimiento y Carga:** k6/Gatling/JMeter con umbrales explícitos y ejecución recurrente.
 
 #### D6: DevOps, CI/CD e Infraestructura (DORA & Cloud Frameworks)
-* **D6.1 Automatización de CI/CD:** Pipelines como código (GitHub Actions, GitLab CI, Bitbucket Pipelines), artefactos inmutables.
-* **D6.2 Métricas DORA:** Evaluación de Frecuencia de Despliegue, Lead Time for Changes, Change Failure Rate y MTTR.
-* **D6.3 Infraestructura como Código (IaC):** Uso de Terraform, CloudFormation, Pulumi, y consistencia de entornos.
-* **D6.4 Seguridad Cloud e IAM:** Seguridad de red (VPCs, WAF, Security Groups), roles de servicio y principio de mínimo privilegio en Cloud.
+* **D6.1 Automatización de CI/CD:** Pipelines como código, artefactos inmutables, blue/green o canary.
+* **D6.2 Métricas DORA:** Las **5 métricas** (deployment frequency, lead time, CFR, failed deployment recovery time, rework rate) contra el benchmark 2024: Elite = lead time **< 1 día**, CFR **5%**. Derivadas del historial real del pipeline — sin acceso, N/D.
+* **D6.3 Infraestructura como Código (IaC):** Terraform/Pulumi con estado remoto y paridad de entornos.
+* **D6.4 Seguridad Cloud e IAM:** Prowler/checkov contra CIS Benchmark v7.0; mínimo privilegio. *(crítica)*
+* **D6.5 Costos y FinOps:** Tagging, budgets, recursos huérfanos, right-sizing (AWS WA Cost Optimization).
 
 #### D7: Observabilidad, Operaciones y Resiliencia (Google SRE)
-* **D7.1 Logging Estructurado:** Logs en formato JSON con correlación de peticiones (*Trace ID*) centralizados.
-* **D7.2 Métricas y Monitoreo:** Indicadores dorados de SRE (Latencia, Tráfico, Errores, Saturación).
-* **D7.3 Trazado Distribuido y Alertas:** Observabilidad APM/Tracing y configuración de alertas basadas en SLIs/SLOs.
-* **D7.4 Plan de Recuperación ante Desastres (DRP):** Respaldos, redundancia multizona/multirregión y procedimientos de rollback.
+* **D7.1 Logging Estructurado:** JSON + Trace-ID + **sin PII en claro** (cruce D4.5).
+* **D7.2 Métricas y Monitoreo:** 4 Señales Doradas instrumentadas de verdad (SDK instalado ≠ monitoreo operante).
+* **D7.3 Trazado Distribuido y Alertas:** SLO/SLI con presupuesto de error y alertas accionables.
+* **D7.4 Plan de Recuperación ante Desastres (DRP):** Documentado, actualizado y **probado**.
 
 #### D8: Gobernanza, Riesgos y Deuda Técnica
-* **D8.1 Riesgos Técnicos y Obsolescencia:** Identificación de versiones End-of-Life (EOL), lenguajes descontinuados o librerías sin soporte.
-* **D8.2 Documentación y Onboarding:** Existencia de arquitectura documentada, diagramas C4, READMEs claros y Runbooks operativos.
-* **D8.3 Gobernanza de Dependencia de Personas:** Bus Factor (riesgo por concentración de conocimiento en individuos clave).
-* **D8.4 Cuadrante de Deuda Técnica:** Priorización de deuda (Prudente/Reconsiderada vs. Temeraria/Inadvertida).
+* **D8.1 Riesgos Técnicos y Obsolescencia:** Versiones contra la API de endoflife.date.
+* **D8.2 Documentación y Onboarding:** Docs que reflejan el código actual, ADRs, C4, runbooks.
+* **D8.3 Dependencia de Personas (Bus Factor):** `git shortlog -sn` por componente crítico.
+* **D8.4 Cuadrante de Deuda Técnica:** Deuda inventariada y **medida** (ISO 5055/ATDM2), con capacidad asignada.
+
+#### D9: SDLC y Gestión del Cambio *(escala anclada a SLSA v1.2 Source Track)*
+* **D9.1 Branching y Protección de Ramas:** Branch protection verificable por API; todo cambio vía PR. *(crítica)*
+* **D9.2 Calidad del Code Review:** Two-party review con enforcement (SLSA Source L4), PRs revisables, reviews sustantivos.
+* **D9.3 Trazabilidad Commit → Ticket → Deploy:** Auditar qué se desplegó y por qué, en segundos.
+* **D9.4 Hotfixes y Cambios de Emergencia:** Proceso auditable + postmortems.
 
 #### DAI: Módulo Especializado de Código Agéntico e Inteligencia Artificial
-* **DAI.1 Verificación Anti-Alucinación y Supply Chain (Slopsquatting):** Garantía de que todas las librerías generadas por LLMs/Agentes existan en registros oficiales y no sean vectores de confusión de dependencias.
-* **DAI.2 Robustez ante Casos Borde (Mitigación de Happy-Path Bias):** Verificación de que el código generado por IA contenga manejo explícito de fallos de red, timeouts, casos nulos e imprevistos en I/O.
-* **DAI.3 Cohesión y Duplicación Agéntica (Snippet Isolation):** Detección de código repetido u over-engineering producido por agentes al trabajar en archivos aislados sin contexto global.
-* **DAI.4 Aserción Real en Pruebas Generadas por IA:** Verificación de que las suites de prueba generadas por IA contengan aserciones verdaderas de lógica y no sean "pruebas fantasma" creadas solo para inflar métricas de cobertura.
-* **DAI.5 Gobernanza y Supervisión Humana (Human-in-the-Loop):** Presencia de marcas de procedencia, etiquetado de commits e inspección de pares sobre código producido por IA.
+*(Evalúa SOLO código con atribución IA — sin atribución, opera sobre los últimos 12 meses con confianza baja.)*
+* **DAI.0 Atribución y Trazabilidad de Código IA:** El mecanismo que define el universo del módulo — trailers de commit (`Co-Authored-By`), política en `AGENTS.md`/`CLAUDE.md`, etiquetas de PR.
+* **DAI.1 Anti-Alucinación y Supply Chain (Slopsquatting):** Registry audit ejecutable (osv-scanner + APIs npm/PyPI: existencia, fecha, descargas). *(crítica)*
+* **DAI.2 Robustez ante Casos Borde (Happy-Path Bias):** Async sin manejo detectado con Semgrep (sintáctico) sobre el universo IA.
+* **DAI.3 Cohesión y Duplicación Agéntica:** jscpd sobre el universo IA vs. línea base del proyecto.
+* **DAI.4 Anti-Phantom Tests:** Tautologías + mutation testing como evidencia de efectividad.
+* **DAI.5 Gobernanza y Supervisión Humana:** Anclada a **SLSA v1.2 Source Track L4** (two-party review con enforcement).
+* **DAI.6 Seguridad de Features LLM (condicional):** OWASP LLM Top 10 2025 (LLM01/LLM02/LLM06) — solo si la plataforma usa LLMs en runtime; si no, N/A sin penalizar.
 
 ---
 
 ### 4. Sistema de Calificación y Algoritmo de Scoring
 
-#### 4.1 Escala de Madurez por Sub-Dimensión (1.0 a 5.0)
+#### 4.1 Método NPLF por Sub-Dimensión (ISO/IEC 33020)
 
-* **1.0 – 1.9 (Crítico / Ad-Hoc):** Ausente o gravemente deficiente. Riesgo alto para la operación.
-* **2.0 – 2.9 (Básico / Informal):** Práctica incipiente, inconsistente o dependiente de personas clave.
-* **3.0 – 3.7 (Aceptable / En Desarrollo):** Proceso definido y funcional pero con brechas evidentes.
-* **3.8 – 4.4 (Robusto / Gestionado):** Estándar consolidado, automatizado y medido con consistencia.
-* **4.5 – 5.0 (Optimizado / Referencia):** Estado del arte, mejora continua automatizada basada en métricas.
+Cada sub-dimensión define en su YAML una lista de **criterios binarios** (`nplf_criteria`). El agente evalúa cada criterio con evidencia citada y el % de cumplimiento mapea a:
 
-#### 4.2 Cálculo del Puntaje por Dimensión ($SD$)
+| Rating | % criterios cumplidos | Score |
+| :---: | :---: | :---: |
+| **F** (Fully) | 86–100% | 5.0 |
+| **L** (Largely) | 51–85% | 3.5 |
+| **P** (Partially) | 16–50% | 2.0 |
+| **N** (Not) | 0–15% | 1.0 |
 
-Cada sub-dimensión ($sd_i$) tiene un peso relativo ($w_i$). El puntaje de la dimensión es:
+Las rúbricas narrativas (ancladas en 1.0/2.0/3.0/4.0/5.0 en los YAML) sirven de sanity-check cualitativo. **Prohibido reportar decimales no derivados del método** (un "3.74" sin ancla es falsa precisión).
+
+#### 4.2 Tiers de Evidencia (techo de score)
+
+| Tier | Tipo | Ejemplos | Score máximo |
+| :---: | :--- | :--- | :---: |
+| **T1** | Señal | grep, file_exists | **3.0** — indica, nunca confirma |
+| **T2** | Métrica de herramienta | gitleaks, Semgrep, Trivy/OSV, jscpd, lizard, Prowler, Stryker, endoflife.date | 5.0 |
+| **T3** | Juicio con evidencia | Lectura real de código/arquitectura, citas `archivo:línea` obligatorias | 5.0 |
+
+El contrato de ejecución de cada check (herramienta, comando, parsing, mapeo a score) vive en `config/checks_catalog.yaml`.
+
+#### 4.3 Evidencia No Disponible (N/D) y Confianza
+
+* Check no ejecutable en **sub-dimensión crítica** ⇒ score **1.0** con nota "evidencia no disponible". La ausencia de evidencia en un control crítico ES el hallazgo.
+* Check no ejecutable en sub-dimensión no crítica ⇒ se excluye renormalizando pesos y se degrada la confianza.
+* Cada dimensión reporta `confidence: Alta | Media | Baja` en el informe; todo N/D se lista en "Limitaciones y Alcance".
+
+#### 4.4 Cálculo del Puntaje por Dimensión ($SD$)
 
 $$SD_k = \sum_{i=1}^{n} (sd_i \times w_i) \quad \text{donde} \quad \sum w_i = 1$$
 
-#### 4.3 Cálculo de la Calificación General de la Plataforma (Platform Health Score)
+#### 4.5 Platform Health Score (PHS) y Gating Rules
 
-La Calificación General ($PHS$) es el promedio ponderado de las 9 dimensiones:
+El promedio ponderado de las 10 dimensiones es la base narrativa:
 
-$$PHS = \sum_{k=1}^{9} (SD_k \times W_k) \quad \text{donde} \quad \sum W_k = 1$$
+$$PHS_{ponderado} = \sum_{k=1}^{10} (SD_k \times W_k) \quad \text{donde} \quad \sum W_k = 1$$
 
-#### Pesos por Defecto según Tipo de Plataforma ($W_k$):
+Pero el PHS **reportable** aplica las gating rules (`config/weights_and_thresholds.yaml`):
 
-| Dimensión | Ponderación General (SaaS/Core) | Ponderación Fintech/Misión Crítica | Ponderación AI-Native / Agentic |
-| :--- | :---: | :---: | :---: |
-| **D1: Arquitectura e Integración** | 12% | 15% | 10% |
-| **D2: Código Fuente y Mantenibilidad** | 12% | 10% | 10% |
-| **D3: Seguridad Aplicativa y DevSecOps** | 15% | 20% | 15% |
-| **D4: Base de Datos y Datos** | 12% | 15% | 10% |
-| **D5: Calidad y Estrategia QA** | 10% | 10% | 10% |
-| **D6: DevOps e Infraestructura** | 10% | 10% | 10% |
-| **D7: Observabilidad y SRE** | 10% | 10% | 10% |
-| **D8: Gobernanza y Riesgos** | 9% | 5% | 5% |
-| **DAI: Código Agéntico e IA** | 10% | 5% | 20% |
-| **TOTAL** | **100%** | **100%** | **100%** |
+* Sub-dimensiones críticas: **D3.1, D3.2, D3.4, D3.5, D6.4, D9.1, DAI.1**.
+* Si cualquiera de ellas ≤ 2.0 ⇒ $PHS_{reportable} = \min(PHS_{ponderado},\ 2.9)$.
+* El informe muestra **siempre**: PHS + **HRIs abiertos: N** (hallazgos Crítico + Alto, nunca promediados) + la sub-dimensión que activa el techo.
+
+#### 4.6 Pesos por Defecto según Tipo de Plataforma ($W_k$)
+
+| Dimensión | SaaS/Core | Fintech/Crítica | MVP | AI-Native |
+| :--- | :---: | :---: | :---: | :---: |
+| **D1: Arquitectura e Integración** | 11% | 13% | 8% | 9% |
+| **D2: Código y Mantenibilidad** | 11% | 9% | 10% | 9% |
+| **D3: Seguridad y DevSecOps** | 15% | 20% | 15% | 14% |
+| **D4: Base de Datos y Datos** | 11% | 14% | 10% | 9% |
+| **D5: Calidad y QA** | 9% | 9% | 12% | 9% |
+| **D6: DevOps e Infraestructura** | 9% | 9% | 12% | 9% |
+| **D7: Observabilidad y SRE** | 9% | 9% | 8% | 9% |
+| **D8: Gobernanza y Riesgos** | 8% | 5% | 5% | 5% |
+| **D9: SDLC y Gestión del Cambio** | 8% | 8% | 8% | 7% |
+| **DAI: Código Agéntico e IA** | 9% | 4% | 12% | 20% |
+| **TOTAL** | **100%** | **100%** | **100%** | **100%** |
+| **Nivel objetivo (target PHS)** | **3.8** | **4.5** | **3.0** | **3.8** |
 
 ---
 
 ### 5. Clasificación Final de la Plataforma
 
-| Rango de Score General (PHS) | Estado de Salud | Diagnóstico del Studio | Acción Recomendada |
+El estado de salud se reporta en dos ejes: **absoluto** (tabla siguiente) y **relativo al nivel objetivo del perfil** (Current vs. Target Profile, NIST CSF 2.0). Un 3.0 es un buen resultado para un MVP (target 3.0) y una brecha seria para fintech (target 4.5).
+
+| Rango de PHS Reportable | Estado de Salud | Diagnóstico del Studio | Acción Recomendada |
 | :---: | :---: | :---: | :---: |
 | **4.5 – 5.0** | **Excelente / Enterprise Ready** | Plataforma madura, escalable y mantenible. | Optimización continua y evolución. |
 | **3.8 – 4.4** | **Bueno / Estable** | Base sólida con oportunidades puntuales. | Plan de refactorización menor. |
 | **3.0 – 3.7** | **Regular / Con Deuda Técnica** | Funcional pero acumula deuda y riesgos. | Roadmap de remediación a mediano plazo. |
-| **2.0 – 2.9** | **En Riesgo / Inestable** | Fragilidad operacional, seguridad débil. | Intervención prioritaria en arquitectura/seguridad. |
+| **2.0 – 2.9** | **En Riesgo / Inestable** | Fragilidad operacional, seguridad débil **o HRI crítico abierto (gating)**. | Intervención prioritaria en arquitectura/seguridad. |
 | **1.0 – 1.9** | **Crítico / No Mantenible** | Alto riesgo de fallo masivo o brecha. | Reestructuración profunda o Re-platforming. |
+
+Taxonomía de severidad de hallazgos: **Crítico** (HRI, ≤ 7 días) · **Alto** (HRI, ≤ 30 días) · **Medio** (trimestre) · **Bajo** (backlog) — definiciones operativas en `config/weights_and_thresholds.yaml`.
 
 ---
 
 ### 6. Matriz de Entregables del Studio
 
-1. **Executive Dashboard (Score & Radar Chart):** Gráfico de araña con el nivel por dimensión y PHS general.
-2. **Technical Deep-Dive Report:** Detalle línea por línea de hallazgos por sub-dimensión con evidencia de código e infraestructura.
-3. **AI Code Integrity & Risk Audit:** Reporte específico sobre la calidad de código agéntico y prevención de alucinaciones/slopsquatting.
-4. **Remediation Roadmap (Prioridad vs. Esfuerzo):** Matriz 2x2 para orientar la inversión del cliente en mejoras inmediatas (Quick Wins), a mediano plazo y proyectos estratégicos.
+1. **Executive Dashboard (Score & Radar Chart):** Nivel por dimensión, PHS + **conteo de HRIs**, confianza por dimensión y gap vs. nivel objetivo.
+2. **Technical Deep-Dive Report:** Hallazgos por sub-dimensión con evidencia `archivo:línea` + commit + output de herramienta archivado en `evidence/` (re-verificable por hash).
+3. **AI Code Integrity & Risk Audit:** Reporte específico sobre atribución, calidad y riesgos del código agéntico.
+4. **Remediation Roadmap (Prioridad vs. Esfuerzo):** Matriz 2x2 para orientar la inversión del cliente.
+5. **Delta Report (re-evaluaciones):** Evolución PHS y HRIs vs. el assessment anterior (milestones à la AWS WA Tool) — el valor comercial recurrente: "PHS 2.8 → 3.6 en 6 meses".
+6. **Limitaciones y Alcance:** Sección obligatoria del informe — accesos disponibles, checks N/D, supuestos y vigencia (heredada del assessment MNK original).
+
+Todo informe lleva **firma de auditor humano** antes de la entrega (paso bloqueante del pipeline): el mismo Human-in-the-Loop que el framework exige al código de los clientes en DAI.5.

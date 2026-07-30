@@ -1,6 +1,6 @@
 dimension_id: "D5"
 name: "Calidad y Estrategia de QA"
-description: "Evaluación de la cobertura de pruebas unitarias, integración, automatización CI y gestión de entornos"
+description: "Evaluación de la cobertura de pruebas unitarias, integración, automatización CI, pruebas de rendimiento y gestión de entornos"
 standards_reference:
   - "Test Automation Pyramid (Martin Fowler / Mike Cohn)"
   - "ISTQB Software Testing Qualification Standard"
@@ -10,49 +10,109 @@ standards_reference:
 sub_dimensions:
   - id: "D5.1"
     name: "Cobertura de Pruebas Unitarias"
-    weight: 0.30
+    weight: 0.25
+    control_refs: ["ISO/IEC/IEEE 29119-4 (test techniques)"]
     agent_checks:
-      - check_type: "file_exists"
+      - check_ref: "file_exists"
         patterns: ["*test*", "*spec*", "coverage/lcov.info", "clover.xml", "jacoco.xml"]
-      - check_type: "grep_search"
+      - check_ref: "mutation_testing"
+        note: "La cobertura sola es T1: cobertura alta con pruebas débiles es humo. El mutation score la convierte en métrica T2 (cruce con DAI.4)"
+      - check_ref: "grep_search"
         query: "expect\\(|assert|should|assertEquals"
         paths: ["src/", "tests/"]
+    nplf_criteria:
+      - "Cobertura medida y reportada por herramienta (no estimada) sobre lógica de negocio"
+      - "Cobertura de lógica de negocio >= 60%"
+      - "Las pruebas contienen aserciones de comportamiento (no solo de existencia/snapshot)"
+      - "Mutation score > 50% en módulos core, o al menos ejecutado una vez como baseline"
     rubric:
       1.0: "Cobertura de pruebas < 10% o archivos de test vacíos sin aserciones"
+      2.0: "Cobertura 10-30% concentrada en utilidades, no en negocio"
       3.0: "Cobertura entre 30% y 60% con aserciones válidas en módulos principales"
-      5.0: "Cobertura de código > 80% en lógica de negocio con aserciones estrictas"
+      4.0: "Cobertura > 60% en negocio con aserciones de comportamiento"
+      5.0: "Cobertura de código > 80% en lógica de negocio con mutation testing como verificación de efectividad"
 
   - id: "D5.2"
     name: "Pruebas de Integración y E2E"
-    weight: 0.25
+    weight: 0.20
+    control_refs: ["ISO/IEC/IEEE 29119-2 (test processes)"]
     agent_checks:
-      - check_type: "file_exists"
-        patterns: ["cypress.json", "cypress.config.*", "playwright.config.*", "testcontainers*"]
+      - check_ref: "file_exists"
+        patterns: ["cypress.config.*", "playwright.config.*", "testcontainers*"]
+      - check_ref: "ci_config_analysis"
+        note: "Config presente sin ejecución en CI = señal T1; verificar que la suite corre y pasa"
+    nplf_criteria:
+      - "Existen pruebas de integración de API con base de datos real o contenedorizada"
+      - "Los flujos críticos de negocio tienen cobertura E2E automatizada"
+      - "Las suites E2E corren en CI (no solo localmente)"
+      - "Las pruebas E2E son estables (sin retry masivo para ocultar flakiness)"
     rubric:
       1.0: "Cero pruebas de integración o E2E; dependencia 100% de pruebas manuales"
+      2.0: "Config de E2E presente pero suites vacías o abandonadas"
       3.0: "Pruebas de API de integración automatizadas presentes"
+      4.0: "Integración + E2E de flujos críticos corriendo en CI"
       5.0: "Suites de integración y E2E automatizadas para todos los flujos críticos de negocio"
 
   - id: "D5.3"
     name: "Automatización en CI/CD y Gates de Calidad"
     weight: 0.25
+    control_refs: ["SLSA v1.2 Build Track L2 (build platform)", "SonarQube Quality Gates"]
     agent_checks:
-      - check_type: "grep_search"
-        query: "npm test|pytest|go test|mvn test|gradle test"
+      - check_ref: "ci_config_analysis"
+        note: "Branch protection + required checks — la evidencia dura de que el gate existe"
+      - check_ref: "grep_search"
+        query: "npm test|pytest|go test|mvn test|gradle test|vitest"
         paths: [".github/", ".gitlab-ci.yml", "bitbucket-pipelines.yml"]
+    nplf_criteria:
+      - "Las pruebas corren automáticamente en cada PR"
+      - "El merge está bloqueado si fallan tests (required status check en branch protection)"
+      - "El gate incluye lint y build, no solo tests"
+      - "La rama principal se mantiene verde (evidencia: pipeline_history_analysis)"
     rubric:
       1.0: "Pruebas ejecutadas solo manualmente en entornos locales"
+      2.0: "CI corre tests pero el merge no está bloqueado por fallos"
       3.0: "Pruebas ejecutadas automáticamente en el pipeline de CI"
+      4.0: "Gate obligatorio de tests+lint con branch protection activa"
       5.0: "Quality Gate en CI obligatorio que bloquea la fusión ante fallos de test o caída de cobertura"
 
   - id: "D5.4"
     name: "Gestión de Datos y Entornos de Prueba"
-    weight: 0.20
+    weight: 0.15
+    control_refs: ["ISO/IEC/IEEE 29119-3 (test documentation)", "GDPR/Ley 8968 (datos de prueba — cruce D4.5)"]
     agent_checks:
-      - check_type: "grep_search"
+      - check_ref: "grep_search"
         query: "mock|stub|factory|faker|testcontainers"
         paths: ["tests/", "src/"]
+      - check_ref: "code_judgment_review"
+        note: "¿Las pruebas dependen de datos/servicios de producción?"
+    nplf_criteria:
+      - "Las pruebas no dependen de datos ni servicios de producción"
+      - "Datos de prueba generados (factories/faker) o fixtures versionadas"
+      - "Base de datos de test aislada y reproducible"
+      - "Datos personales reales nunca copiados a test sin anonimizar"
     rubric:
       1.0: "Pruebas dependientes de datos o bases de datos de producción reales"
+      2.0: "BD de test compartida e inestable entre desarrolladores"
       3.0: "Mocks y stubs utilizados; base de datos de test aislada"
+      4.0: "Factories/fixtures reproducibles; entornos de test por rama"
       5.0: "Entornos efímeros y aislados con generación automatizada de datos sintéticos"
+
+  - id: "D5.5"
+    name: "Pruebas de Rendimiento y Carga"
+    weight: 0.15
+    control_refs: ["ISO/IEC 25010:2023 (Performance Efficiency)", "AWS WA Performance Pillar"]
+    agent_checks:
+      - check_ref: "performance_test_analysis"
+      - check_ref: "file_exists"
+        patterns: ["*k6*", "*gatling*", "*jmeter*", "artillery*", "locustfile*"]
+    nplf_criteria:
+      - "Existen escenarios de carga para los flujos de mayor tráfico"
+      - "Los escenarios definen umbrales explícitos (p95 latencia, error rate)"
+      - "Se ejecutan de forma recurrente (CI, pre-release o calendario)"
+      - "Los resultados alimentan decisiones (capacity planning, índices, pooling — cruce D4.2)"
+    rubric:
+      1.0: "Sin ninguna prueba de carga; capacidad y límites del sistema desconocidos"
+      2.0: "Pruebas de carga hechas una vez, resultados obsoletos"
+      3.0: "Escenarios de carga definidos con ejecución manual esporádica"
+      4.0: "Load tests con umbrales, ejecutados pre-release"
+      5.0: "Pruebas de carga automatizadas con thresholds en CI y baseline de regresión de rendimiento"

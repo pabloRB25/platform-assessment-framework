@@ -5,49 +5,88 @@ standards_reference:
   - "ISO 31000 Risk Management — Guidelines"
   - "Technical Debt Quadrant (Martin Fowler)"
   - "C4 Model for Visualizing Software Architecture"
-  - "ISO/IEC 27001 Security Controls A.8 & A.12"
+  - "ISO/IEC 27001:2022 Anexo A — controles 5.19-5.21 (proveedores), 8.4 (acceso a código), 8.8 (vulnerabilidades técnicas), 8.9 (gestión de configuración), 8.25-8.34 (desarrollo seguro)"
+  - "ISO/IEC 5055:2021 + ATDM2 — medición de deuda técnica en esfuerzo (horas/costo)"
 
 sub_dimensions:
   - id: "D8.1"
     name: "Riesgos Técnicos y Obsolescencia Tecnológica"
     weight: 0.30
+    control_refs: ["ISO 27001:2022 A.8.8 (technical vulnerability management)", "ISO 31000"]
     agent_checks:
-      - check_type: "version_check"
-        files: ["package.json", "Dockerfile", "pom.xml", "requirements.txt", "go.mod"]
+      - check_ref: "version_check"
+        note: "endoflife.date API contra las versiones reales en package.json, Dockerfile, go.mod, .nvmrc, runtime configs"
+    nplf_criteria:
+      - "Ningún runtime/framework core en End-of-Life (evidencia: endoflife.date por producto)"
+      - "Las versiones están a <= 1 major de la LTS vigente"
+      - "Existe proceso recurrente de actualización (Renovate/Dependabot o calendario)"
+      - "Los componentes cercanos a EOL tienen plan de migración con fecha"
     rubric:
       1.0: "Uso de versiones End-of-Life (EOL) descontinuadas sin soporte de seguridad"
+      2.0: "Componentes core a meses del EOL sin plan de migración"
       3.0: "Versiones dentro del ciclo de vida soportado pero con retrasos en actualizaciones mayores"
+      4.0: "Stack en versiones soportadas con actualización semi-automatizada"
       5.0: "Stack tecnológico en versiones LTS vigentes con proceso automatizado de actualización"
 
   - id: "D8.2"
     name: "Documentación y Transferencia de Conocimiento"
     weight: 0.25
+    control_refs: ["C4 Model", "ISO 27001:2022 A.5.37 (procedimientos operativos documentados)"]
     agent_checks:
-      - check_type: "file_exists"
+      - check_ref: "file_exists"
         patterns: ["README.md", "ARCHITECTURE.md", "docs/*", "adrs/*", "docs/adr/*"]
+      - check_ref: "code_judgment_review"
+        note: "La existencia del README es T1; evaluar si su contenido refleja el código actual (setup reproducible, arquitectura real)"
+    nplf_criteria:
+      - "README permite a un dev nuevo levantar el proyecto sin ayuda (instrucciones verificables)"
+      - "La documentación de arquitectura coincide con el código actual (cruce D1.1)"
+      - "Las decisiones estructurales quedan en ADRs u otro registro durable"
+      - "Existen runbooks para operar los procesos críticos"
     rubric:
       1.0: "Sin documentación o README desactualizado/vacío"
+      2.0: "README genérico de plantilla; conocimiento real solo en cabezas del equipo"
       3.0: "README funcional con guía de instalación local y diagramas de arquitectura básicos"
+      4.0: "Documentación mantenida + ADRs para decisiones recientes"
       5.0: "Documentación viva (ADRs), diagramas C4 y Runbooks operativos completos"
 
   - id: "D8.3"
     name: "Dependencia de Personas (Bus Factor)"
     weight: 0.20
+    control_refs: ["ISO 31000 (riesgo de concentración)", "ISO 27001:2022 A.6.1"]
     agent_checks:
-      - check_type: "git_commit_analysis"
+      - check_ref: "git_history_analysis"
+        note: "git shortlog -sn --no-merges por path de componente crítico, últimos 12 meses"
+    nplf_criteria:
+      - "Ningún componente core con > 80% de commits de un solo autor en 12 meses"
+      - "Al menos 2 personas han modificado cada componente crítico recientemente"
+      - "El proceso de onboarding permite desplegar en < 1 semana"
+      - "Las revisiones de PR distribuyen conocimiento (reviewers rotan — cruce D9.2)"
     rubric:
       1.0: "Bus Factor = 1; concentración crítica de conocimiento en un solo desarrollador"
+      2.0: "Bus Factor 1 en componentes core aunque el resto esté distribuido"
       3.0: "Conocimiento compartido entre 2 o más miembros del equipo"
+      4.0: "2+ autores activos por componente + onboarding documentado"
       5.0: "Bus Factor > 3 personas con proceso de onboarding que permite desplegar en < 2 días"
 
   - id: "D8.4"
     name: "Gestión de Deuda Técnica"
     weight: 0.25
+    control_refs: ["Technical Debt Quadrant", "ISO/IEC 5055 + ATDM2 (deuda medida en esfuerzo)"]
     agent_checks:
-      - check_type: "grep_search"
+      - check_ref: "grep_search"
         query: "TODO:|FIXME:|HACK:|XXX:"
         paths: ["src/"]
+        note: "T1 — el conteo de TODOs es señal, no medición de deuda"
+      - check_ref: "complexity_scan"
+        note: "La deuda estructural medible (ISO 5055) sale de la herramienta, no de etiquetas"
+    nplf_criteria:
+      - "La deuda está inventariada en un backlog visible (no solo en comentarios de código)"
+      - "La deuda estructural se mide con herramienta (complejidad/duplicación como proxy ISO 5055)"
+      - "Hay capacidad de ingeniería asignada de forma recurrente a pagarla"
+      - "Las decisiones de asumir deuda quedan registradas (deuda prudente vs. inadvertida)"
     rubric:
       1.0: "Deuda técnica temeraria acumulada sin control ni visibilidad"
+      2.0: "Deuda conocida informalmente; sin backlog ni tiempo asignado"
       3.0: "Deuda técnica identificada y etiquetada en código con refactorizaciones periódicas"
-      5.0: "Capacidad de ingeniería dedicada por sprint (15-20%) para pagar deuda técnica priorizada"
+      4.0: "Backlog de deuda priorizado con medición por herramienta"
+      5.0: "Capacidad de ingeniería dedicada por sprint (15-20%) para pagar deuda técnica priorizada y medida"

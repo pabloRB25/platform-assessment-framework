@@ -1,56 +1,121 @@
 dimension_id: "D6"
 name: "DevOps, CI/CD e Infraestructura"
-description: "Evaluación de la automatización CI/CD, métricas DORA, Infraestructura como Código (IaC) y seguridad Cloud"
+description: "Evaluación de la automatización CI/CD, métricas DORA, Infraestructura como Código (IaC), seguridad Cloud y FinOps"
 standards_reference:
-  - "DORA Metrics (DevOps Research and Assessment - Google Cloud)"
-  - "AWS / GCP / Azure Well-Architected Framework Operational Excellence & Security Pillars"
+  - "DORA — Accelerate State of DevOps (benchmark por clusters: informe 2024; el informe 2025 usa 7 perfiles de equipo)"
+  - "AWS / GCP / Azure Well-Architected Framework (incl. pilar Cost Optimization)"
   - "CNCF Cloud Native Maturity Model"
-  - "CIS Benchmarks for AWS / Kubernetes"
+  - "CIS Benchmarks for AWS / Kubernetes (v7.0)"
+  - "FinOps Framework (FinOps Foundation)"
 
 sub_dimensions:
   - id: "D6.1"
     name: "Automatización de Pipelines CI/CD"
-    weight: 0.30
+    weight: 0.25
+    control_refs: ["SLSA v1.2 Build Track L1-L3", "AWS WA Operational Excellence"]
     agent_checks:
-      - check_type: "file_exists"
+      - check_ref: "file_exists"
         patterns: [".github/workflows/*.yml", ".gitlab-ci.yml", "bitbucket-pipelines.yml", "Jenkinsfile"]
-      - check_type: "grep_search"
-        query: "docker build|helm upgrade|aws ecs|kubectl apply|terraform apply"
+      - check_ref: "ci_config_analysis"
+      - check_ref: "grep_search"
+        query: "docker build|helm upgrade|aws ecs|kubectl apply|terraform apply|vercel"
         paths: [".github/", ".gitlab-ci.yml", "bitbucket-pipelines.yml"]
+    nplf_criteria:
+      - "Build y deploy a ambientes de prueba 100% automatizados desde el pipeline"
+      - "El deploy a producción no requiere pasos manuales fuera de una aprobación"
+      - "Los artefactos son inmutables (imagen/bundle construido una vez, promovido entre ambientes)"
+      - "Existe estrategia de despliegue segura (blue/green, canary o rollback automatizado)"
     rubric:
       1.0: "Despliegues manuales directos por FTP/SSH sin pipeline automatizado"
+      2.0: "Pipeline de build sin deploy automatizado; scripts manuales por ambiente"
       3.0: "Pipeline automatizado para entornos de test; producción requiere intervención manual"
+      4.0: "Deploy automatizado con aprobación; artefactos inmutables"
       5.0: "Despliegues 100% automatizados con contenedores inmutables y estrategias Blue/Green o Canary"
 
   - id: "D6.2"
     name: "Métricas DORA (Velocidad y Estabilidad)"
-    weight: 0.25
+    weight: 0.20
+    control_refs: ["DORA 2024 (última tabla de benchmarks por clusters); 5 métricas: deployment frequency, lead time, change failure rate, failed deployment recovery time, rework rate"]
     agent_checks:
-      - check_type: "pipeline_history_analysis"
+      - check_ref: "pipeline_history_analysis"
+        note: "Sin acceso al historial del pipeline => N/D (not_available_policy). No estimar DORA a ojo."
+    nplf_criteria:
+      - "Lead time for changes < 1 semana (Elite 2024: < 1 día)"
+      - "Frecuencia de despliegue al menos semanal (Elite 2024: on-demand/diaria)"
+      - "Change failure rate <= 10% (Elite 2024: 5%; High 20%)"
+      - "Failed deployment recovery time < 1 día (Elite 2024: < 1 hora)"
+      - "El rework rate (5ª métrica) se conoce o es medible desde el historial"
     rubric:
-      1.0: "Low Performer: Despliegues mensuales, Lead Time > 1 mes, CFR > 30%"
-      3.0: "Medium Performer: Despliegues semanales, Lead Time < 1 semana, CFR 15-30%"
-      5.0: "Elite Performer: Despliegues diarios a demanda, Lead Time < 1 hora, CFR < 5%"
+      1.0: "Low: despliegues mensuales o menos, lead time > 1 mes, CFR alto, recuperación > 1 semana"
+      2.0: "Despliegues quincenales; lead time de semanas; sin medición de CFR"
+      3.0: "Medium: despliegues semanales, lead time < 1 semana, CFR ~10%"
+      4.0: "High: despliegues frecuentes, lead time de días, CFR <= 20% con recuperación < 1 día"
+      5.0: "Elite (benchmark 2024): despliegues on-demand, lead time < 1 día, CFR 5%, recuperación < 1 hora"
 
   - id: "D6.3"
     name: "Infraestructura como Código (IaC) y Entornos"
-    weight: 0.25
+    weight: 0.20
+    control_refs: ["AWS WA Operational Excellence", "CNCF Maturity Model"]
     agent_checks:
-      - check_type: "file_exists"
-        patterns: ["*.tf", "serverless.yml", "template.yaml", "Dockerfile", "docker-compose.yml"]
+      - check_ref: "file_exists"
+        patterns: ["*.tf", "serverless.yml", "template.yaml", "Dockerfile", "docker-compose.yml", "pulumi*"]
+      - check_ref: "ci_config_analysis"
+        note: "¿terraform plan/apply corre en CI con estado remoto?"
+    nplf_criteria:
+      - "La infraestructura productiva está descrita en IaC versionado (no ClickOps)"
+      - "El estado del IaC es remoto y bloqueado (state locking)"
+      - "Los cambios de infra pasan por PR + plan visible antes de aplicar"
+      - "Paridad de entornos garantizada por el mismo código IaC parametrizado"
     rubric:
       1.0: "Infraestructura aprovisionada manualmente por consola (ClickOps) con inconsistencias de entorno"
+      2.0: "IaC parcial y desactualizado; drift frecuente contra lo desplegado"
       3.0: "Archivos de Terraform o Serverless presentes para la mayoría de componentes"
+      4.0: "IaC dominante con estado remoto y plan en CI; excepciones inventariadas"
       5.0: "100% de la infraestructura gestionada por IaC con estado remoto y paridad de entornos"
 
   - id: "D6.4"
     name: "Seguridad Cloud e IAM"
     weight: 0.20
+    critical: true
+    control_refs: ["CIS AWS Foundations Benchmark v7.0", "ISO 27001:2022 A.5.15-A.5.18, A.8.9", "AWS WA Security Pillar"]
     agent_checks:
-      - check_type: "grep_search"
+      - check_ref: "cloud_posture_scan"
+        note: "Prowler contra la cuenta, o checkov/tfsec sobre IaC. Sin acceso a ninguno => N/D en sub-dimensión crítica => 1.0"
+      - check_ref: "grep_search"
         query: "AdministratorAccess|\"\\*\"|0\\.0\\.0\\.0/0"
         paths: ["infra/", "terraform/", ".github/"]
+    nplf_criteria:
+      - "Cero políticas IAM con Action/Resource wildcard en roles de servicio (evidencia: scan)"
+      - "Sin recursos de datos expuestos públicamente (buckets, DBs) salvo diseño explícito"
+      - "Security groups restringidos (nada de 0.0.0.0/0 en puertos de administración)"
+      - "Auditoría cloud activa (CloudTrail o equivalente) con retención"
+      - "Los findings críticos del benchmark CIS están resueltos o aceptados formalmente"
     rubric:
       1.0: "Permisos IAM con comodines (*), recursos expuestos directamente a internet sin firewall"
+      2.0: "IAM amplio en varios roles; auditoría cloud apagada"
       3.0: "Roles IAM específicos y Security Groups restringidos a puertos operativos"
+      4.0: "Mínimo privilegio consistente + CloudTrail + scan CIS con findings gestionados"
       5.0: "Mínimo privilegio estricto, subredes privadas, WAF configurado y registros auditables en CloudTrail"
+
+  - id: "D6.5"
+    name: "Costos y FinOps"
+    weight: 0.15
+    control_refs: ["AWS WA Cost Optimization Pillar", "FinOps Framework (Inform/Optimize/Operate)"]
+    agent_checks:
+      - check_ref: "grep_search"
+        query: "tags|budget|cost_center|instance_type|autoscaling"
+        paths: ["infra/", "terraform/"]
+        note: "T1 — señal de tagging y right-sizing en IaC"
+      - check_ref: "cloud_posture_scan"
+        note: "Recursos huérfanos (volúmenes sin adjuntar, IPs elásticas libres, instancias detenidas facturando)"
+    nplf_criteria:
+      - "Los recursos cloud tienen tagging consistente (proyecto/ambiente/owner)"
+      - "Existen budgets o alertas de costo configuradas"
+      - "Sin recursos huérfanos facturando (evidencia: scan o revisión de consola)"
+      - "El sizing de recursos está justificado (autoscaling o right-sizing revisado)"
+    rubric:
+      1.0: "Sin visibilidad de costos; recursos huérfanos y sobredimensionados sin dueño"
+      2.0: "Costos revisados solo cuando llega una factura alta"
+      3.0: "Tagging parcial y presupuesto mensual conocido; sin alertas"
+      4.0: "Tagging consistente + budgets con alertas + limpieza periódica de huérfanos"
+      5.0: "FinOps operante: unit economics por servicio, right-sizing continuo y anomalías de costo alertadas"

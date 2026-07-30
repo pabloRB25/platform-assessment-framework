@@ -1,0 +1,216 @@
+# Catálogo de Checks — contrato de ejecución por check_type
+# Todo check referenciado en dimensions/*.yaml DEBE estar definido aquí:
+# herramienta, comando, parsing del output y mapeo umbral -> score.
+# Los tiers (T1/T2/T3) y sus techos de score están en weights_and_thresholds.yaml.
+catalog_version: "1.0.0"
+
+conventions:
+  evidence_dir: "evidence/"        # Todo output crudo se archiva con hash SHA-256 (ver pipeline paso de archivo)
+  na_handling: "Si la herramienta no está disponible o el recurso no es accesible, registrar N/D y aplicar not_available_policy — NUNCA sustituir silenciosamente por un grep."
+  citation_format: "archivo:línea + commit SHA + nombre del archivo de evidencia"
+
+checks:
+
+  # ==================== TIER 1 — SEÑALES ====================
+  grep_search:
+    tier: T1
+    tool: "ripgrep (rg) o grep -rn"
+    contract: "Detecta PRESENCIA de strings. Solo válido como señal orientativa o para detectar anti-patrones puntuales (ej. expect(true).toBe(true)). Jamás confirma una práctica positiva por sí solo."
+    output: "Lista de coincidencias archivo:línea"
+    scoring: "No puntúa por sí mismo por encima de 3.0 (techo T1)."
+
+  file_exists:
+    tier: T1
+    tool: "find / glob"
+    contract: "Detecta existencia de archivos de configuración o artefactos. La existencia de un archivo NO prueba su uso (ej. .eslintrc presente pero lint no corre en CI)."
+    output: "Lista de rutas encontradas"
+    scoring: "Techo T1. Para superar 3.0, combinar con el check T2 que pruebe uso real (ej. ci_config_analysis)."
+
+  directory_structure_analysis:
+    tier: T1
+    tool: "tree -d -L 3 / listado de paquetes"
+    contract: "Mapea la estructura de módulos/capas como insumo para architecture_conformance_review (T3). No puntúa solo."
+    output: "Árbol de directorios + conteo de módulos"
+
+  # ==================== TIER 2 — MÉTRICAS DE HERRAMIENTA ====================
+  secret_scan:
+    tier: T2
+    tool: "gitleaks (obligatorio) + trufflehog (verificación de credencial viva, opcional)"
+    command: "gitleaks git --report-format json --report-path evidence/gitleaks.json .   # escanea TODO el historial, no solo HEAD"
+    parsing: "JSON: cada finding con RuleID, File, Commit, Secret (redactado en informe)"
+    score_mapping:
+      - "1+ secreto VIVO verificado (trufflehog) => 1.0 + hallazgo Crítico"
+      - "1+ secreto en historial (no verificado vivo) => 2.0 max + hallazgo Alto"
+      - "0 hallazgos y escaneo anti-secretos en CI => elegible 5.0"
+    notes: "El hallazgo más frecuente vive en el HISTORIAL de git (secreto borrado del HEAD). Escanear working tree solamente invalida el check."
+
+  sast_scan:
+    tier: T2
+    tool: "semgrep"
+    command: "semgrep scan --config auto --json -o evidence/semgrep.json src/"
+    parsing: "JSON results[]: check_id, path, start.line, severity"
+    score_mapping:
+      - "1+ finding ERROR en categoría injection/crypto => <= 2.0"
+      - "Solo WARNING => <= 3.5"
+      - "Limpio + semgrep en CI => elegible 5.0"
+    notes: "Reemplaza los regex multilínea imposibles en grep (async sin catch, SQL concatenado). Usar reglas p/ del lenguaje del repo."
+
+  sca_scan:
+    tier: T2
+    tool: "trivy fs u osv-scanner (incluye licencias)"
+    command: "trivy fs --scanners vuln,license --format json -o evidence/trivy.json ."
+    parsing: "Vulnerabilities[]: Severity, PkgName, InstalledVersion, FixedVersion; Licenses[]: categoría"
+    score_mapping:
+      - "CVE CRITICAL con fix disponible sin aplicar => <= 2.0 + hallazgo Alto"
+      - "Solo HIGH/MEDIUM gestionados => 3.5"
+      - "Limpio + SCA en CI con bloqueo + SBOM => elegible 5.0"
+    license_rules: "GPL/AGPL en dependencia distribuida de un SaaS propietario => hallazgo Alto (riesgo legal). Reportar inventario de licencias en evidence/."
+
+  duplication_scan:
+    tier: T2
+    tool: "jscpd"
+    command: "jscpd --reporters json --output evidence/ src/"
+    parsing: "statistics.total.percentage"
+    score_mapping:
+      - "> 15% duplicación => 1.0"
+      - "8-15% => 2.0"
+      - "3-8% => 3.5"
+      - "< 3% => elegible 5.0"
+
+  complexity_scan:
+    tier: T2
+    tool: "lizard (multi-lenguaje) o radon (Python)"
+    command: "lizard -l <lang> --csv src/ > evidence/lizard.csv"
+    parsing: "CSV: NLOC, CCN, token, param por función"
+    score_mapping:
+      - "Funciones con CCN > 15 en > 5% del codebase => <= 2.0"
+      - "CCN promedio 5-10 => 3.5"
+      - "CCN promedio < 5 y sin funciones > 15 => elegible 5.0"
+
+  dependency_graph_analysis:
+    tier: T2
+    tool: "madge (JS/TS), deptrac (PHP), ArchUnit (JVM), import-linter (Python)"
+    command: "madge --circular --json src/ > evidence/madge.json"
+    parsing: "Array de ciclos detectados; grafo de dependencias entre módulos"
+    score_mapping:
+      - "1+ dependencia circular entre módulos de dominio => <= 2.0"
+      - "Ciclos solo en utilidades/hojas => 3.5"
+      - "0 ciclos + capas respetadas (validado con architecture_conformance_review) => elegible 5.0"
+
+  version_check:
+    tier: T2
+    tool: "endoflife.date API"
+    command: "curl -s https://endoflife.date/api/<producto>.json  # contrastar contra versiones en package.json, Dockerfile, go.mod, etc."
+    parsing: "Campos eol, latest, support por ciclo de release"
+    score_mapping:
+      - "1+ runtime/framework core en EOL => 1.0 + hallazgo Alto"
+      - "Soportado pero a 1 major de EOL sin plan => 2.0"
+      - "Versiones LTS vigentes => 3.5-5.0 según automatización de upgrades"
+
+  package_registry_audit:
+    tier: T2
+    tool: "osv-scanner + API de npm/PyPI"
+    command: "Por cada dependencia directa: GET https://registry.npmjs.org/<pkg> (o PyPI JSON API). Verificar: existe, fecha de publicación, descargas semanales, repositorio enlazado."
+    parsing: "Paquete inexistente => alucinado. Paquete < 90 días con < 500 descargas y nombre similar a uno popular => sospecha de slopsquatting/typosquatting."
+    score_mapping:
+      - "1+ dependencia inexistente o típicamente slopsquatted => 1.0 + hallazgo Crítico"
+      - "Todas verificadas, sin lockfile estricto => 3.5"
+      - "Verificadas + lockfile + allowlist/registro privado => elegible 5.0"
+
+  git_history_analysis:
+    tier: T2
+    tool: "git"
+    command: "git shortlog -sn --no-merges -- <path>   # por componente crítico, últimos 12 meses: --since='12 months ago'"
+    parsing: "Distribución de commits por autor y por path"
+    score_mapping:
+      - "1 autor concentra > 80% de commits en componente core => bus factor 1 => <= 2.0 + hallazgo Alto"
+      - "2 autores activos por componente => 3.5"
+      - "3+ autores con distribución sana => elegible 5.0"
+
+  git_pr_review_analysis:
+    tier: T2
+    tool: "gh CLI"
+    command: "gh pr list --state merged --limit 100 --json number,reviews,author,additions,mergedAt > evidence/prs.json"
+    parsing: "% de PRs con 1+ review aprobada de autor distinto; tamaño mediano de PR; PRs auto-mergeados"
+    score_mapping:
+      - "PRs fusionados sin ninguna revisión de terceros => <= 2.0"
+      - "Review habitual pero sin enforcement => 3.5"
+      - "Two-party review OBLIGATORIA por branch protection (SLSA Source Track L4) => elegible 5.0"
+
+  pipeline_history_analysis:
+    tier: T2
+    tool: "gh CLI / API del CI"
+    command: "gh run list --limit 200 --json status,conclusion,createdAt,updatedAt,headBranch > evidence/ci_runs.json ; gh api repos/{owner}/{repo}/deployments"
+    parsing: "Frecuencia de deploy, lead time (commit->deploy), tasa de runs fallidos en rama principal, tiempo de recuperación"
+    score_mapping: "Mapear contra benchmarks DORA 2024 (ver D6.2). Sin acceso al historial => N/D (not_available_policy)."
+
+  ci_config_analysis:
+    tier: T2
+    tool: "Lectura estructurada de workflows + branch protection API"
+    command: "gh api repos/{owner}/{repo}/branches/<main>/protection > evidence/branch_protection.json"
+    parsing: "required_status_checks, required_pull_request_reviews, enforce_admins"
+    score_mapping:
+      - "Sin protección de rama principal => <= 2.0"
+      - "Checks requeridos sin review obligatoria => 3.5"
+      - "Checks + review + sin bypass de admins => elegible 5.0"
+
+  mutation_testing:
+    tier: T2
+    tool: "Stryker (JS/TS), PITest (JVM), mutmut (Python)"
+    command: "npx stryker run --reporters json  # solo sobre módulos de negocio, acotado por tiempo"
+    parsing: "Mutation score (% mutantes muertos)"
+    score_mapping:
+      - "Mutation score < 30% con cobertura declarada > 70% => pruebas fantasma probables => <= 2.0"
+      - "50-70% => 3.5"
+      - "> 70% y corriendo en CI => elegible 5.0"
+
+  cloud_posture_scan:
+    tier: T2
+    tool: "Prowler (AWS/GCP/Azure) o tfsec/checkov sobre IaC si no hay acceso a consola"
+    command: "prowler aws -M json-ocsf -o evidence/  # o: checkov -d infra/ -o json > evidence/checkov.json"
+    parsing: "Findings por severidad mapeados a CIS Benchmark IDs"
+    score_mapping:
+      - "1+ FAIL crítico CIS (S3 público, 0.0.0.0/0 en admin, wildcard IAM) => <= 2.0 + hallazgo Crítico/Alto"
+      - "FAILs medios gestionados => 3.5"
+      - "Limpio + scan periódico automatizado => elegible 5.0"
+    notes: "Sin acceso a la cuenta cloud NI a IaC => N/D en sub-dimensión crítica => score 1.0 (not_available_policy)."
+
+  performance_test_analysis:
+    tier: T2
+    tool: "Detección + lectura de resultados de k6/Gatling/JMeter/artillery"
+    command: "Buscar configs y resultados; si existen, leer umbrales (thresholds) y última ejecución"
+    parsing: "Existencia de escenarios de carga + umbrales definidos + ejecución reciente/CI"
+    score_mapping:
+      - "Sin ninguna prueba de carga => <= 2.0 en D5.5"
+      - "Escenarios definidos, ejecución manual esporádica => 3.5"
+      - "Load tests con thresholds en CI/pre-release => elegible 5.0"
+
+  # ==================== TIER 3 — JUICIO CON EVIDENCIA ====================
+  architecture_conformance_review:
+    tier: T3
+    contract: "El agente CONTRASTA lo declarado (docs/ADRs/diagramas) contra el código real: bounded contexts, dirección de dependencias, separación de capas. Un README que dice 'hexagonal' NO puntúa como hexagonal — puntúa lo que el código demuestra."
+    inputs: ["directory_structure_analysis", "dependency_graph_analysis", "lectura de 5+ módulos representativos"]
+    output: "Veredicto por criterio NPLF con citas archivo:línea obligatorias"
+    score_mapping: "Elegible 1.0-5.0. Sin citas archivo:línea, el veredicto es inválido."
+
+  code_judgment_review:
+    tier: T3
+    contract: "Lectura real de una muestra representativa de código (mínimo 10 archivos o 5% del codebase, lo que sea mayor) para evaluar diseño, SOLID, manejo de errores o calidad de tests. Complementa (no reemplaza) los checks T2."
+    output: "Veredicto por criterio NPLF con citas archivo:línea obligatorias"
+
+  ai_attribution_analysis:
+    tier: T2
+    tool: "git log + política del repo"
+    command: "git log --grep='Co-Authored-By:.*[Cc]laude\\|Co-Authored-By:.*[Cc]opilot\\|Generated with' --oneline | wc -l ; revisar AGENTS.md / CLAUDE.md / etiquetas de PR"
+    parsing: "% de commits con trailer de atribución IA; existencia de política de atribución"
+    score_mapping:
+      - "Sin ningún mecanismo de atribución => DAI opera sobre TODO el código reciente con confidence: low"
+      - "Trailers parciales => 3.5"
+      - "Política escrita + trailers/etiquetas consistentes => elegible 5.0"
+    notes: "Este check define el UNIVERSO de código que evalúa el módulo DAI (regla anti doble conteo con D2)."
+
+  llm_feature_security_review:
+    tier: T3
+    contract: "Solo si la plataforma integra LLMs en runtime. Revisar contra OWASP LLM Top 10 (2025): LLM01 Prompt Injection (¿input de usuario concatenado a prompts de sistema?), LLM02 Insecure Output Handling (¿output del LLM ejecutado/renderizado sin sanitizar?), LLM06 exposición de datos sensibles en prompts."
+    output: "Veredicto por criterio con citas archivo:línea"
+    notes: "Si la plataforma NO usa LLMs en runtime, DAI.6 se marca N/A y su peso se redistribuye proporcionalmente (no cuenta como N/D)."

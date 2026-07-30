@@ -1,61 +1,125 @@
 dimension_id: "D4"
 name: "Base de Datos y Gestión de Datos"
-description: "Evaluación del modelado de datos, rendimiento de consultas, migraciones y alta disponibilidad"
+description: "Evaluación del modelado de datos, rendimiento de consultas, migraciones, alta disponibilidad y protección de datos personales"
 standards_reference:
   - "ACID and BASE Consistency Models"
   - "PostgreSQL / MySQL Performance Tuning Guidelines"
-  - "ISO/IEC 11179 Information technology — Metadata registries"
-  - "AWS Well-Architected Framework Reliability & Performance Pillars"
+  - "ISO/IEC 5055:2021 — debilidades de eficiencia de rendimiento y fiabilidad"
+  - "AWS Well-Architected Framework — Reliability, Performance y pilar de Datos"
+  - "GDPR / Ley 8968 (Costa Rica) — protección de datos personales"
 
 sub_dimensions:
   - id: "D4.1"
     name: "Modelado, Normalización y Tipado"
-    weight: 0.25
+    weight: 0.20
+    control_refs: ["ISO/IEC 5055:2021 (Data handling weaknesses)"]
     agent_checks:
-      - check_type: "file_exists"
+      - check_ref: "file_exists"
         patterns: ["*schema*", "*migration*", "prisma/schema.prisma", "*.sql"]
-      - check_type: "grep_search"
+      - check_ref: "grep_search"
         query: "FOREIGN KEY|CONSTRAINT|REFERENCES"
-        paths: ["src/", "migrations/"]
+        paths: ["src/", "migrations/", "supabase/"]
+      - check_ref: "code_judgment_review"
+        note: "Leer el esquema real: tipos adecuados, constraints, normalización proporcional al caso"
+    nplf_criteria:
+      - "Integridad referencial garantizada por el esquema (FKs/constraints), no solo por la aplicación"
+      - "Tipos de datos específicos y adecuados (no todo text/varchar genérico)"
+      - "Normalización razonada (3NF o desnormalización justificada y documentada)"
+      - "Restricciones de dominio (NOT NULL, CHECK, UNIQUE) en columnas de negocio críticas"
     rubric:
       1.0: "Sin llaves foráneas ni restricciones de integridad; tipos de datos genéricos e inadecuados"
+      2.0: "FKs parciales; integridad delegada a la aplicación"
       3.0: "Modelo relacional correcto en 3NF con restricciones básicas de integridad"
+      4.0: "Esquema tipado y restringido; desnormalizaciones documentadas"
       5.0: "Modelado optimizado, tipos de datos eficientes e integridad garantizada por esquema"
 
   - id: "D4.2"
     name: "Rendimiento de Consultas e Indexación"
-    weight: 0.30
+    weight: 0.25
+    control_refs: ["ISO/IEC 5055:2021 (Performance efficiency)", "AWS WA Performance Pillar"]
     agent_checks:
-      - check_type: "grep_search"
-        query: "SELECT \\*|for.*in.*:\\s*.*objects\\.get|foreach.*find"
-        paths: ["src/"]
-      - check_type: "grep_search"
+      - check_ref: "sast_scan"
+        note: "Reglas de N+1 (query dentro de bucle) — detección sintáctica"
+      - check_ref: "grep_search"
         query: "CREATE INDEX|index:|@Index"
-        paths: ["src/", "migrations/"]
+        paths: ["src/", "migrations/", "supabase/"]
+      - check_ref: "code_judgment_review"
+        note: "Contrastar columnas de búsqueda/join frecuente contra los índices realmente definidos"
+    nplf_criteria:
+      - "Sin patrones N+1 en flujos críticos (evidencia: SAST + muestreo)"
+      - "Índices definidos para las columnas de filtro/join más frecuentes"
+      - "Sin SELECT * en consultas de producción sobre tablas anchas"
+      - "Pool de conexiones configurado explícitamente para el volumen esperado"
     rubric:
       1.0: "Consultas SELECT * masivas, N+1 consultas en bucles y ausencia de índices"
+      2.0: "Índices solo implícitos (PKs); N+1 presente en flujos secundarios"
       3.0: "Índices en llaves primarias/foráneas; problema N+1 mitigado en flujos críticos"
+      4.0: "Índices diseñados por patrón de acceso; pooling configurado"
       5.0: "Consultas optimizadas con índices avanzados y pool de conexiones (PgBouncer/HikariCP)"
 
   - id: "D4.3"
     name: "Migraciones y Versionamiento de Esquema"
-    weight: 0.25
+    weight: 0.20
+    control_refs: ["AWS WA Operational Excellence (change management de datos)"]
     agent_checks:
-      - check_type: "file_exists"
-        patterns: ["flyway*", "liquibase*", "knexfile*", "alembic.ini", "prisma/migrations"]
+      - check_ref: "file_exists"
+        patterns: ["flyway*", "liquibase*", "knexfile*", "alembic.ini", "prisma/migrations", "supabase/migrations"]
+      - check_ref: "ci_config_analysis"
+        note: "¿Las migraciones corren en el pipeline o se aplican a mano?"
+    nplf_criteria:
+      - "Todo cambio de esquema pasa por migración versionada en el repo"
+      - "Las migraciones se aplican automáticamente en el pipeline por ambiente"
+      - "Los cambios destructivos siguen patrón expand-contract (retrocompatibles)"
+      - "Existe procedimiento de rollback probado para migraciones fallidas"
     rubric:
       1.0: "Cambios de base de datos manuales directos en producción sin control de versiones"
+      2.0: "Migraciones versionadas pero aplicadas a mano; drift entre ambientes"
       3.0: "Herramienta de migraciones de código presente en el repositorio"
+      4.0: "Migraciones automáticas en CI/CD; destructivas revisadas manualmente"
       5.0: "Migraciones automáticas en CI/CD con cambios retrocompatibles (Zero Downtime)"
 
   - id: "D4.4"
     name: "Escalabilidad, Alta Disponibilidad y Resiliencia (HA/DRP)"
     weight: 0.20
+    control_refs: ["AWS WA Reliability Pillar", "CIS Benchmarks (backup config)"]
     agent_checks:
-      - check_type: "grep_search"
-        query: "multi_az|read_replica|backup_retention|rds"
-        paths: ["infra/", "terraform/"]
+      - check_ref: "grep_search"
+        query: "multi_az|read_replica|backup_retention|rds|point_in_time"
+        paths: ["infra/", "terraform/", "supabase/"]
+      - check_ref: "cloud_posture_scan"
+        note: "Sin acceso a infra/ ni consola cloud => N/D con not_available_policy (esta evidencia no se infiere del código)"
+    nplf_criteria:
+      - "Backups automáticos con retención definida (evidencia: IaC o configuración cloud)"
+      - "Restauración PROBADA al menos una vez (evidencia documental o de pipeline)"
+      - "Redundancia acorde al perfil (Multi-AZ/replicas para SaaS productivo)"
+      - "RPO/RTO definidos y conocidos por el equipo"
     rubric:
       1.0: "Instancia única sin réplicas ni estrategia de respaldos automáticos"
+      2.0: "Backups automáticos sin prueba de restauración conocida"
       3.0: "Base de datos administrada cloud con Multi-AZ y respaldos diarios"
+      4.0: "Multi-AZ + réplicas; restauración probada; RPO/RTO definidos"
       5.0: "Multi-AZ con réplicas de lectura segregadas, backups continuos y RPO/RTO probados"
+
+  - id: "D4.5"
+    name: "Protección de Datos Personales y Privacidad"
+    weight: 0.15
+    control_refs: ["GDPR Art. 5/17/32 (si aplica)", "Ley 8968 CR — derechos ARCO", "ISO 27001:2022 A.8.10-A.8.12", "ASVS 5.0 V12 (Data Protection)"]
+    agent_checks:
+      - check_ref: "code_judgment_review"
+        note: "Identificar dónde viven los datos personales (PII) y verificar: cifrado en reposo, minimización, capacidad de borrado"
+      - check_ref: "grep_search"
+        query: "email|phone|cedula|dni|ssn|birthdate|address"
+        paths: ["migrations/", "prisma/", "supabase/"]
+        note: "T1 — inventario de columnas PII candidatas"
+    nplf_criteria:
+      - "Existe inventario (aunque sea informal) de qué tablas/columnas contienen datos personales"
+      - "Los datos personales están cifrados en reposo (nativo cloud o de columna para los sensibles)"
+      - "Existe capacidad real de borrado/anonimización por sujeto (derecho de supresión — GDPR/Ley 8968)"
+      - "Los datos personales no se copian a entornos de prueba sin anonimizar"
+      - "El logging no registra PII en claro (cruce con D7.1)"
+    rubric:
+      1.0: "PII dispersa sin inventario, sin cifrado y copiada a entornos de prueba"
+      2.0: "PII identificada informalmente; sin capacidad de borrado por sujeto"
+      3.0: "Cifrado en reposo activo; borrado posible pero manual y sin proceso"
+      4.0: "Inventario de PII + borrado por sujeto implementado + test data anonimizada"
+      5.0: "Privacidad por diseño: minimización, cifrado, retención definida y derechos ARCO automatizados"

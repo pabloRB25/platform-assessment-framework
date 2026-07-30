@@ -1,7 +1,10 @@
-# Configuración de Ponderaciones y Umbrales del Assessment
-framework_version: "2.1.0"
+# Configuración de Ponderaciones, Umbrales y Reglas de Scoring del Assessment
+framework_version: "3.0.0"
 author: "Studio Architecture & AI Engineering Practice"
 
+# ============================================================
+# 1. ESCALA DE MADUREZ (anclas 1.0 / 2.0 / 3.0 / 4.0 / 5.0)
+# ============================================================
 scoring_scale:
   min: 1.0
   max: 5.0
@@ -12,49 +15,182 @@ scoring_scale:
     2.0: "Básico (Nivel 2) - Informal, ad-hoc, dependiente de individuos"
     1.0: "Crítico (Nivel 1) - Inexistente o gravemente deficiente"
 
+# ------------------------------------------------------------
+# 1.1 Método de calificación NPLF (ISO/IEC 33020)
+# Cada sub-dimensión define en su YAML una lista `nplf_criteria`
+# de criterios BINARIOS (cumple / no cumple). El score de la
+# sub-dimensión se deriva del % de criterios cumplidos — no del
+# juicio libre del agente. Reproducible entre corridas y agentes.
+# ------------------------------------------------------------
+nplf_method:
+  ratings:
+    F: { name: "Fully achieved",   range_pct: [86, 100], score: 5.0 }
+    L: { name: "Largely achieved", range_pct: [51, 85],  score: 3.5 }
+    P: { name: "Partially achieved", range_pct: [16, 50], score: 2.0 }
+    N: { name: "Not achieved",     range_pct: [0, 15],   score: 1.0 }
+  rules:
+    - "El agente evalúa cada criterio binario con evidencia citada (archivo:línea, commit, output de herramienta)."
+    - "score_subdimension = score del rating NPLF resultante. La rúbrica narrativa 1-5 se usa solo como sanity-check cualitativo."
+    - "Un criterio sin evidencia disponible NO cuenta como cumplido (ver not_available_policy)."
+    - "Prohibido reportar decimales no derivados del método (falsa precisión): los valores válidos por sub-dimensión son 1.0, 2.0, 3.5, 5.0."
+
+# ============================================================
+# 2. NIVELES DE EVIDENCIA (techo de score por tier)
+# La definición operativa de cada check vive en config/checks_catalog.yaml
+# ============================================================
+evidence_tiers:
+  T1:
+    name: "Señal (grep, file_exists, estructura)"
+    description: "Indica presencia de strings o archivos. NUNCA confirma una práctica."
+    max_score_alone: 3.0   # una sub-dimensión soportada SOLO por T1 no puede superar 3.0
+  T2:
+    name: "Métrica de herramienta (reproducible, machine-readable)"
+    description: "Output de herramienta estándar: gitleaks, Semgrep, Trivy/OSV-Scanner, jscpd, lizard, Prowler, Stryker, endoflife.date, APIs de registro."
+    max_score_alone: 5.0
+  T3:
+    name: "Juicio experto con evidencia citada"
+    description: "Lectura real de código/arquitectura por agente o humano. Requiere citas archivo:línea y racional documentado."
+    max_score_alone: 5.0
+
+# ============================================================
+# 3. EVIDENCIA NO DISPONIBLE (N/D) Y CONFIANZA
+# ============================================================
+not_available_policy:
+  critical_subdimension: "Check no ejecutable (sin acceso a infra/, historial de pipeline, consola cloud, historial git) => score 1.0 con nota 'evidencia no disponible'. La ausencia de evidencia en un control crítico ES el hallazgo."
+  non_critical_subdimension: "Se excluye la sub-dimensión del promedio de su dimensión (renormalizando pesos) y se degrada la confianza de la dimensión."
+  reporting: "Todo N/D se lista obligatoriamente en la sección 'Limitaciones y Alcance' del informe."
+
+confidence_levels:
+  high: "Todos los checks T2/T3 planificados ejecutados con evidencia archivada."
+  medium: "Checks parciales; al menos un N/D en sub-dimensión no crítica, o evidencia solo T1 en alguna sub-dimensión."
+  low: "N/D en sub-dimensión crítica, o dimensión soportada mayoritariamente por señales T1."
+
+# ============================================================
+# 4. PERFILES Y PONDERACIONES (10 dimensiones: D1-D9 + DAI)
+# ============================================================
 profiles:
   general_saas:
     name: "SaaS / Plataforma Core General"
+    target_phs: 3.8          # Nivel objetivo (Current vs Target, NIST CSF 2.0)
     weights:
-      D1: 0.12 # Arquitectura e Integración
-      D2: 0.12 # Código y Mantenibilidad
-      D3: 0.15 # Seguridad y DevSecOps
-      D4: 0.12 # Base de Datos y Datos
-      D5: 0.10 # Calidad y QA
-      D6: 0.10 # DevOps e Infraestructura
-      D7: 0.10 # Observabilidad y Resiliencia
-      D8: 0.09 # Gobernanza y Riesgos
-      DAI: 0.10 # Código Agéntico e IA
+      D1: 0.11  # Arquitectura e Integración
+      D2: 0.11  # Código y Mantenibilidad
+      D3: 0.15  # Seguridad y DevSecOps
+      D4: 0.11  # Base de Datos y Datos
+      D5: 0.09  # Calidad y QA
+      D6: 0.09  # DevOps e Infraestructura
+      D7: 0.09  # Observabilidad y Resiliencia
+      D8: 0.08  # Gobernanza y Riesgos
+      D9: 0.08  # SDLC y Gestión del Cambio
+      DAI: 0.09 # Código Agéntico e IA
 
   fintech_critical:
     name: "Fintech / Misión Crítica / Alta Seguridad"
+    target_phs: 4.5
     weights:
-      D1: 0.15
-      D2: 0.10
-      D3: 0.20 # Alta ponderación a Seguridad
-      D4: 0.15
-      D5: 0.10
-      D6: 0.10
-      D7: 0.10
+      D1: 0.13
+      D2: 0.09
+      D3: 0.20  # Alta ponderación a Seguridad
+      D4: 0.14
+      D5: 0.09
+      D6: 0.09
+      D7: 0.09
       D8: 0.05
-      DAI: 0.05
+      D9: 0.08  # Control de cambios pesa en entornos regulados
+      DAI: 0.04
+
+  mvp_early_stage:
+    name: "MVP / Producto en Etapa Temprana"
+    target_phs: 3.0          # Un 3.0 aquí es un buen resultado; no exigir madurez enterprise
+    weights:
+      D1: 0.08
+      D2: 0.10
+      D3: 0.15  # La seguridad básica no se negocia ni en MVP
+      D4: 0.10
+      D5: 0.12
+      D6: 0.12
+      D7: 0.08
+      D8: 0.05
+      D9: 0.08
+      DAI: 0.12
 
   ai_native_agentic:
     name: "Plataforma AI-Native / Código Agéntico Intensivo"
+    target_phs: 3.8
     weights:
-      D1: 0.10
-      D2: 0.10
-      D3: 0.15
-      D4: 0.10
-      D5: 0.10
-      D6: 0.10
-      D7: 0.10
+      D1: 0.09
+      D2: 0.09
+      D3: 0.14
+      D4: 0.09
+      D5: 0.09
+      D6: 0.09
+      D7: 0.09
       D8: 0.05
+      D9: 0.07
       DAI: 0.20 # Máxima ponderación en Auditoría de IA y Agentes
 
+# ============================================================
+# 5. GATING RULES — lo crítico NO se promedia, acota
+# Alineado con ISO 33020 / TMMi / AWS Well-Architected (conteo de HRIs):
+# el nivel reportable se deriva del MÍNIMO en controles críticos,
+# nunca del promedio ponderado.
+# ============================================================
+gating_rules:
+  critical_subdimensions: [D3.1, D3.2, D3.4, D3.5, D6.4, D9.1, DAI.1]
+  cap_if_breached: 2.9          # Cualquier sub-dimensión crítica <= 2.0 acota el PHS reportable a "En Riesgo"
+  breach_threshold: 2.0
+  report_alongside_phs: hri_count   # Nº de hallazgos High-Risk SIEMPRE junto al PHS, nunca promediados
+  rules:
+    - "PHS_reportable = min(PHS_ponderado, cap_if_breached) si alguna sub-dimensión crítica <= breach_threshold."
+    - "El informe muestra SIEMPRE: PHS + 'HRIs abiertos: N' + la sub-dimensión que activa el techo (si aplica)."
+    - "Un HRI Crítico abierto impide clasificar la plataforma por encima de 'En Riesgo', sin importar el promedio."
+
+# ============================================================
+# 6. TAXONOMÍA DE SEVERIDAD (HRI/MRI — AWS Well-Architected)
+# ============================================================
+severity_taxonomy:
+  critico:
+    label: "Crítico"
+    hri: true
+    definition: "Explotable hoy o exposición activa: secretos vivos, SQLi/BOLA demostrable, datos personales expuestos, acceso admin sin control. Impacto directo en confidencialidad, integridad, disponibilidad o cumplimiento legal."
+    sla_remediacion: "<= 7 días"
+  alto:
+    label: "Alto"
+    hri: true
+    definition: "Debilidad seria sin explotación inmediata demostrada: dependencia con CVE crítico, falta de backups probados, pipeline sin gates, bus factor = 1 en componente core."
+    sla_remediacion: "<= 30 días"
+  medio:
+    label: "Medio"
+    hri: false
+    definition: "Degrada mantenibilidad u operación: duplicación alta, complejidad excesiva, documentación desactualizada, observabilidad parcial."
+    sla_remediacion: "Roadmap del trimestre"
+  bajo:
+    label: "Bajo"
+    hri: false
+    definition: "Mejora oportunista sin riesgo operativo directo."
+    sla_remediacion: "Backlog priorizado"
+
+# ============================================================
+# 7. UMBRALES DE CLASIFICACIÓN
+# El estado de salud se reporta ABSOLUTO y RELATIVO al target_phs
+# del perfil (gap = target_phs - PHS_reportable).
+# ============================================================
 thresholds:
   enterprise_ready: 4.5
   stable_good: 3.8
   regular_tech_debt: 3.0
   at_risk: 2.0
   critical: 1.0
+
+target_gap_interpretation:
+  on_target: "PHS_reportable >= target_phs del perfil => la plataforma cumple su nivel objetivo."
+  minor_gap: "gap <= 0.5 => brechas abordables con roadmap corto."
+  major_gap: "gap > 0.5 => plan de remediación estructural requerido."
+
+# ============================================================
+# 8. SOLAPAMIENTO D2/DAI — regla anti doble conteo
+# ============================================================
+double_counting_rules:
+  - "D2 (manejo de errores, duplicación, complejidad) califica el CODEBASE COMPLETO."
+  - "DAI califica SOLO código con atribución IA (ver DAI.0). El mismo defecto nunca baja el PHS dos veces."
+  - "Si un defecto aparece en código IA-atribuido, se registra en DAI y se cita en D2 como contexto sin re-penalizar."

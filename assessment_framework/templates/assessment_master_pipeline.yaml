@@ -1,6 +1,7 @@
 # Pipeline Maestro de Orquestación para Agentes de Evaluación de Software
 pipeline_id: "master_platform_assessment_pipeline"
-description: "Workflow automatizado para la ejecución completa del assessment de plataforma (incluyendo código agéntico/IA) por un agente autónomo"
+pipeline_version: "2.0.0"
+description: "Workflow automatizado para la ejecución completa del assessment de plataforma (incluyendo código agéntico/IA) por un agente autónomo, con archivo de evidencia, validación humana y soporte de re-evaluación"
 
 steps:
   - step: 1
@@ -9,11 +10,23 @@ steps:
     outputs:
       - "inventory_repos"
       - "inventory_tech_stack"
+      - "access_inventory"     # QUÉ evidencia es accesible (repo, historial git, CI, cloud) — insumo de la política N/D
 
   - step: 2
+    name: "Carga de Assessment Previo (Delta / Milestones)"
+    action: "load_previous_assessment"
+    optional: true
+    inputs:
+      previous_report_dir: "reports/"
+    outputs:
+      - "baseline_scores"      # Para reportar PHS 2.8 -> 3.6 y el delta por dimensión (à la AWS WA Tool milestones)
+    notes: "Si no existe assessment previo, se omite y el informe se marca como 'Baseline inicial'."
+
+  - step: 3
     name: "Ejecución de Dimensiones Técnicas y Código Agéntico"
     action: "execute_dimensions"
-    parallel: false
+    parallel: true             # Las 10 dimensiones son independientes entre sí
+    checks_catalog_ref: "config/checks_catalog.yaml"   # Contrato de ejecución de cada check
     dimension_files:
       - "dimensions/D1_Arquitectura_Integracion.yaml"
       - "dimensions/D2_Codigo_Mantenibilidad.yaml"
@@ -23,15 +36,50 @@ steps:
       - "dimensions/D6_DevOps_Infraestructura.yaml"
       - "dimensions/D7_Observabilidad_Resiliencia.yaml"
       - "dimensions/D8_Gobernanza_Riesgos.yaml"
+      - "dimensions/D9_SDLC_GestionCambio.yaml"
       - "dimensions/DAI_Codigo_Agentico_IA.yaml"
+    execution_order_note: "DAI.0 (atribución IA) debe resolverse ANTES que DAI.1-DAI.6 dentro de la dimensión DAI; entre dimensiones no hay dependencias."
 
-  - step: 3
+  - step: 4
+    name: "Archivo de Evidencia"
+    action: "archive_evidence"
+    outputs_dir: "evidence/"
+    rules:
+      - "Todo output crudo de herramienta (gitleaks.json, semgrep.json, trivy.json, jscpd, lizard, prowler, gh api) se guarda en evidence/ con hash SHA-256."
+      - "Se genera evidence/MANIFEST.md: archivo, hash, herramienta, versión, fecha, check asociado."
+      - "Sin evidencia archivada, un score T2 se degrada a T1 (techo 3.0): el score debe ser re-verificable."
+
+  - step: 5
     name: "Cálculo de Scoring Cuantitativo"
     action: "calculate_scores"
     config_ref: "config/weights_and_thresholds.yaml"
+    rules:
+      - "Sub-dimensión: método NPLF sobre criterios binarios (nplf_method)."
+      - "Aplicar techos por tier de evidencia (evidence_tiers)."
+      - "Aplicar política N/D (not_available_policy) y asignar confidence por dimensión."
+      - "Aplicar gating_rules: PHS_reportable = min(PHS_ponderado, 2.9) si alguna sub-dimensión crítica <= 2.0."
+      - "Calcular hri_count (hallazgos Crítico + Alto) — se reporta SIEMPRE junto al PHS."
+      - "Aplicar double_counting_rules entre D2 y DAI."
+      - "Calcular gap contra target_phs del perfil."
 
-  - step: 4
+  - step: 6
+    name: "Validación Humana del Borrador"
+    action: "human_review_gate"
+    blocking: true
+    rules:
+      - "Un auditor humano revisa: hallazgos Críticos/Altos, scores acotados por gating, sub-dimensiones N/D y la sección de limitaciones."
+      - "El informe NO se entrega al cliente sin firma humana — el mismo principio Human-in-the-Loop que el framework exige en DAI.5."
+    outputs:
+      - "reviewer_name_and_date"
+
+  - step: 7
     name: "Generación de Informe Final"
     action: "render_report"
     template_ref: "templates/template_final_report.md"
     output_file: "reports/Informe_Final_Assessment_Plataforma.md"
+    includes:
+      - "PHS + hri_count + techo por gating (si aplica)"
+      - "Confidence por dimensión"
+      - "Delta vs. assessment previo (si existe baseline)"
+      - "Sección de Limitaciones y Alcance (obligatoria)"
+      - "Firma del revisor humano"

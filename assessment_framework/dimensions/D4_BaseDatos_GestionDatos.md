@@ -9,8 +9,9 @@ Asegurar que la capa de base de datos sea altamente disponible, escalable, con i
 ## 3. Referencia de Estándares de la Industria
 * **Principios ACID / BASE:** Garantías de transaccionalidad vs. consistencia eventual.
 * **Database Performance Tuning Guidelines (PostgreSQL / MySQL / MongoDB / Oracle).**
-* **ISO/IEC 11179:** Estándar de especificación y estandarización de elementos de datos.
-* **AWS Database Best Practices & Well-Architected Reliability Pillar.**
+* **ISO/IEC 5055:2021:** Debilidades medibles de eficiencia de rendimiento y fiabilidad en la capa de datos.
+* **AWS Well-Architected — Reliability, Performance y pilar de Datos.**
+* **GDPR / Ley 8968 (Costa Rica):** Protección de datos personales — evaluada en D4.5.
 
 ---
 
@@ -36,6 +37,11 @@ Asegurar que la capa de base de datos sea altamente disponible, escalable, con i
 * **3.0 (En Desarrollo):** Base de datos administrada (AWS RDS / GCP Cloud SQL) con Multi-AZ y backups automáticos diarios.
 * **5.0 (Optimizado):** Multi-AZ con réplicas de lectura segregadas, backups continuos con RPO < 5 min y RTO < 15 min probados periódicamente.
 
+### D4.5 Protección de Datos Personales y Privacidad (GDPR / Ley 8968 CR)
+* **1.0 (Inicial):** PII dispersa sin inventario, sin cifrado y copiada a entornos de prueba sin anonimizar.
+* **3.0 (En Desarrollo):** Cifrado en reposo activo; borrado por sujeto posible pero manual y sin proceso definido.
+* **5.0 (Optimizado):** Privacidad por diseño: inventario de PII, minimización, cifrado, retención definida y derechos ARCO (acceso/rectificación/cancelación/oposición) automatizados.
+
 ---
 
 ## 5. Metodología de Ejecución para el Agente IA
@@ -43,4 +49,5 @@ Asegurar que la capa de base de datos sea altamente disponible, escalable, con i
 1. **Revisión de Migraciones:** Buscar carpetas `migrations/`, `db/migrate/`, `flyway/` o archivos de esquema ORM (`schema.prisma`, `models.py`, `entities/`).
 2. **Inspección de Consultas N+1:** Buscar bucles `for` que ejecutan consultas dentro de la iteración.
 3. **Verificación de Connection Pooling:** Inspeccionar configuraciones de BD buscando `max_connections`, `pool_size`, PgBouncer.
-4. **Verificación de Configuración Cloud DB:** Revisar archivos Terraform/IaC sobre configuraciones RDS/CloudSQL.
+4. **Verificación de Configuración Cloud DB:** Revisar archivos Terraform/IaC sobre configuraciones RDS/CloudSQL. Sin acceso a `infra/` ni consola cloud, D4.4 se marca **N/D** según `not_available_policy` — nunca se estima.
+5. **Inventario de PII (D4.5):** Identificar en el esquema qué tablas/columnas contienen datos personales y verificar cifrado, capacidad de borrado por sujeto y anonimización en datos de prueba.

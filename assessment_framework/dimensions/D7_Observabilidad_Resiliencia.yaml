@@ -11,51 +11,89 @@ sub_dimensions:
   - id: "D7.1"
     name: "Logging Estructurado y Centralización"
     weight: 0.25
+    control_refs: ["OWASP ASVS 5.0 V16 (Logging)", "ISO 27001:2022 A.8.15-A.8.16"]
     agent_checks:
-      - check_type: "grep_search"
+      - check_ref: "grep_search"
         query: "winston|pino|bunyan|logback|serilog|zerolog|structlog|json_formatter"
         paths: ["src/"]
-      - check_type: "grep_search"
+      - check_ref: "grep_search"
         query: "X-Request-ID|X-Correlation-ID|traceparent"
         paths: ["src/"]
+      - check_ref: "code_judgment_review"
+        note: "Verificar en código real: ¿el logger estructurado se USA en los flujos de negocio o convive con console.log?; ¿se loguea PII en claro? (cruce D4.5)"
+    nplf_criteria:
+      - "Logging estructurado (JSON) como mecanismo dominante en código de producción"
+      - "Logs centralizados en una plataforma de agregación (no solo disco local)"
+      - "Correlación de peticiones activa (trace/correlation id propagado)"
+      - "Sin PII ni secretos en claro en los logs (muestreo con citas)"
     rubric:
       1.0: "Logs de texto plano guardados en disco local sin rotación ni estructura"
+      2.0: "Logger estructurado instalado pero console.log dominante en la práctica"
       3.0: "Logs en formato JSON enviados a una plataforma de agregación centralizada"
+      4.0: "Logging estructurado uniforme con correlación de peticiones activa"
       5.0: "Logging estructurado uniforme con mascarado de PII y propagación de Trace-ID"
 
   - id: "D7.2"
     name: "Métricas y Monitoreo (Golden Signals)"
     weight: 0.25
+    control_refs: ["Google SRE (Golden Signals)", "AWS WA Operational Excellence"]
     agent_checks:
-      - check_type: "grep_search"
+      - check_ref: "grep_search"
         query: "datadog|newrelic|prometheus|opentelemetry|sentry|dynatrace"
         paths: ["src/"]
+      - check_ref: "code_judgment_review"
+        note: "SDK instalado != monitoreo operante: verificar instrumentación real y existencia de dashboards"
+    nplf_criteria:
+      - "Herramienta de métricas/APM instrumentada en los servicios productivos"
+      - "Se cubren las 4 señales doradas (latencia, tráfico, errores, saturación)"
+      - "Existen dashboards operativos en uso (no solo los default del vendor)"
+      - "Se rastrean métricas de negocio además de las técnicas"
     rubric:
       1.0: "Sin herramientas de monitoreo ni recolección de métricas operativas"
+      2.0: "SDK de APM instalado sin instrumentación efectiva ni dashboards"
       3.0: "APM o Prometheus recolectando uso de CPU, Memoria y tasa de errores HTTP"
+      4.0: "Golden Signals cubiertas con dashboards operativos activos"
       5.0: "Monitoreo integral de las 4 Señales Doradas SRE y dashboards personalizados"
 
   - id: "D7.3"
     name: "Trazado Distribuido y Alertas (SLO/SLI)"
     weight: 0.25
+    control_refs: ["OpenTelemetry Spec", "Google SRE (Error Budgets)"]
     agent_checks:
-      - check_type: "file_exists"
+      - check_ref: "file_exists"
         patterns: ["*grafana*", "*alerts*", "*pagerduty*", "*opsgenie*"]
-      - check_type: "grep_search"
+      - check_ref: "grep_search"
         query: "opentelemetry|jaeger|zipkin"
         paths: ["src/"]
+    nplf_criteria:
+      - "Alertas automáticas configuradas para condiciones de fallo (no dependencia de reportes de usuarios)"
+      - "Las alertas llegan a un canal accionable con dueño (on-call, Slack operativo)"
+      - "Trazado distribuido activo entre servicios (si hay más de un servicio)"
+      - "SLOs definidos para los flujos críticos con presupuesto de error"
     rubric:
       1.0: "Sin alertas automáticas; dependiente de reportes de fallos por parte de usuarios"
+      2.0: "Alertas de infraestructura básicas (CPU/disco) sin alertas de aplicación"
       3.0: "Alertas básicas configuradas por correo o Slack ante caídas del servidor"
+      4.0: "Alertas de aplicación accionables + tracing activo; SLOs informales"
       5.0: "Trazado distribuido activo y alertas por consumo de Error Budget (SLOs) en PagerDuty"
 
   - id: "D7.4"
     name: "Continuidad del Negocio y Disaster Recovery (DRP)"
     weight: 0.25
+    control_refs: ["ISO/IEC 27031", "ISO 27001:2022 A.5.29-A.5.30, A.8.13-A.8.14"]
     agent_checks:
-      - check_type: "file_exists"
+      - check_ref: "file_exists"
         patterns: ["*DRP*", "*disaster_recovery*", "*runbook*"]
+      - check_ref: "code_judgment_review"
+        note: "Un archivo DRP.md existente es señal T1; evaluar contenido, fecha y evidencia de pruebas"
+    nplf_criteria:
+      - "Existe procedimiento de recuperación documentado y actualizado (< 12 meses)"
+      - "Los backups se prueban restaurando (evidencia, no solo intención) — cruce D4.4"
+      - "RPO/RTO definidos y comunicados al negocio"
+      - "Existen runbooks para los incidentes más probables"
     rubric:
       1.0: "Sin plan DRP documentado ni probado; tiempo de recuperación > 24 horas"
+      2.0: "DRP escrito una vez, desactualizado y nunca probado"
       3.0: "Procedimiento de recuperación ante desastres documentado con backups diarios"
+      4.0: "DRP actualizado con al menos una prueba de restauración anual"
       5.0: "Plan DRP automatizado con pruebas periódicas y failover probado (RPO < 15m, RTO < 1h)"

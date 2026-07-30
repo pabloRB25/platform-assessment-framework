@@ -9,7 +9,8 @@ Garantizar la sostenibilidad del software a largo plazo, mitigando la dependenci
 ## 3. Referencia de Estándares de la Industria
 * **ISO 31000:** Gestión del riesgo — Principios y directrices.
 * **Cuadrante de Deuda Técnica (Martin Fowler):** Clasificación de deuda (Prudente/Reconsiderada vs. Temeraria/Inadvertida).
-* **ISO/IEC 27001 (Dominio A.8 y A.12):** Seguridad en la gestión de activos y operaciones.
+* **ISO/IEC 27001:2022 Anexo A:** controles 5.19–5.21 (proveedores), 8.4 (acceso a código fuente), 8.8 (vulnerabilidades técnicas), 8.9 (gestión de configuración) y 8.25–8.34 (desarrollo seguro). *(La numeración A.8/A.12 correspondía a la edición 2013, retirada.)*
+* **ISO/IEC 5055:2021 + ATDM2:** Medición de deuda técnica en esfuerzo (horas/costo) — convierte D8.4 de estimación en medición.
 * **C4 Model (Simon Brown):** Estándar de visualización de arquitectura de software.
 
 ---
@@ -32,7 +33,7 @@ Garantizar la sostenibilidad del software a largo plazo, mitigando la dependenci
 * **5.0 (Optimizado):** Bus Factor alto (> 3 personas), documentación onboarding que permite a un nuevo dev desplegar en < 2 días.
 
 ### D8.4 Gestión de Deuda Técnica
-* **1.0 (Inicial):** Deuda técnica temeraria acumulada din control, sin backlog de refactorización ni visibilidad por parte del negocio.
+* **1.0 (Inicial):** Deuda técnica temeraria acumulada sin control, sin backlog de refactorización ni visibilidad por parte del negocio.
 * **3.0 (En Desarrollo):** Deuda técnica identificada y etiquetada como `TODO` / `FIXME` en código, con tiempo dedicado a refactorizar en sprints.
 * **5.0 (Optimizado):** Presupuesto constante de ingeniería (ej. 15-20% por sprint) asignado a pagar deuda técnica priorizada por impacto de negocio.
 
@@ -40,7 +41,8 @@ Garantizar la sostenibilidad del software a largo plazo, mitigando la dependenci
 
 ## 5. Metodología de Ejecución para el Agente IA
 
-1. **Verificación de Versiones EOL:** Inspeccionar `package.json`, `Dockerfile`, `.nvmrc`, `runtime.txt`, `pom.xml`, `go.mod` para comprobar versiones contra calendarios EOL oficiales.
-2. **Inspección de Documentación:** Buscar archivos `README.md`, `CONTRIBUTING.md`, carpetas `docs/`, `adrs/`, `architecture/`.
-3. **Análisis de Deuda Técnica:** Contar incidencias de `TODO:`, `FIXME:`, `HACK:`, `XXX:` en todo el código fuente.
-4. **Verificación de ADRs (Architecture Decision Records):** Inspeccionar si se documentan las decisiones de arquitectura.
+1. **Verificación de Versiones EOL (T2):** Contrastar `package.json`, `Dockerfile`, `.nvmrc`, `runtime.txt`, `pom.xml`, `go.mod` contra la **API de endoflife.date** (`https://endoflife.date/api/<producto>.json`) — nunca de memoria.
+2. **Inspección de Documentación:** Buscar `README.md`, `CONTRIBUTING.md`, carpetas `docs/`, `adrs/`, `architecture/` y **validar que reflejen el código actual** (existencia = T1).
+3. **Bus Factor (T2):** `git shortlog -sn --no-merges --since='12 months ago' -- <path>` por componente crítico; >80% de commits de un autor = bus factor 1.
+4. **Análisis de Deuda Técnica:** El conteo de `TODO:`/`FIXME:` es señal T1; la medición real sale de `lizard`/`jscpd` (proxy ISO 5055) y del backlog visible.
+5. **Verificación de ADRs (Architecture Decision Records):** Inspeccionar si se documentan las decisiones de arquitectura.

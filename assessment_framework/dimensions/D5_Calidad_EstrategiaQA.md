@@ -36,6 +36,11 @@ Garantizar la estabilidad funcional del software, prevenir regresiones en produc
 * **3.0 (En Desarrollo):** Mocks/Stubs utilizados para servicios externos; base de datos de prueba reiniciada en cada suite.
 * **5.0 (Optimizado):** Entornos efímeros de prueba instanciados bajo demanda (Preview Environments) con datos sintéticos totalmente aislados.
 
+### D5.5 Pruebas de Rendimiento y Carga
+* **1.0 (Inicial):** Sin ninguna prueba de carga; la capacidad y los límites del sistema son desconocidos.
+* **3.0 (En Desarrollo):** Escenarios de carga definidos (k6, Gatling, JMeter, artillery) con ejecución manual esporádica.
+* **5.0 (Optimizado):** Pruebas de carga automatizadas con umbrales explícitos (p95, error rate) en CI/pre-release y baseline de regresión de rendimiento.
+
 ---
 
 ## 5. Metodología de Ejecución para el Agente IA
@@ -43,4 +48,6 @@ Garantizar la estabilidad funcional del software, prevenir regresiones en produc
 1. **Búsqueda de Frameworks de Test:** Identificar `jest`, `mocha`, `pytest`, `phpunit`, `junit`, `cypress`, `playwright`.
 2. **Medición de Cobertura:** Inspeccionar reportes de coverage (`coverage/`, `clover.xml`, `jacoco.xml`, `lcov.info`).
 3. **Verificación de Aserciones:** Buscar presencia de `expect()`, `assert`, `should` en archivos `*.spec.*` o `*.test.*`.
-4. **Verificación en CI:** Revisar si el comando `npm test`, `pytest` o similar se ejecuta en los workflows de CI.
+4. **Verificación en CI:** Revisar si el comando `npm test`, `pytest` o similar se ejecuta en los workflows de CI **y** si el merge está bloqueado por branch protection (evidencia dura vía `gh api .../branches/<main>/protection`).
+5. **Efectividad Real (Mutation Testing, T2):** La cobertura sola es señal — ejecutar Stryker/PITest/mutmut sobre módulos de negocio para verificar que las pruebas detectan fallos (cruce con DAI.4).
+6. **Pruebas de Carga (D5.5):** Buscar configs de k6/Gatling/JMeter/artillery, leer umbrales y última ejecución.

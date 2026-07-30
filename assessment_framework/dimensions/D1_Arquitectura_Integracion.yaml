@@ -4,56 +4,93 @@ description: "Evaluación del diseño arquitectónico, patrones de integración,
 standards_reference:
   - "TOGAF Architecture Development Method (ADM)"
   - "SEI Architecture Tradeoff Analysis Method (ATAM)"
-  - "IEEE 42010 Systems and software engineering — Architecture description"
-  - "OpenAPI Specification v3.0+"
+  - "ISO/IEC/IEEE 42010:2022 — Architecture description"
+  - "ISO/IEC/IEEE 42030:2019 — Architecture evaluation framework"
+  - "OpenAPI Specification v3.1"
 
 sub_dimensions:
   - id: "D1.1"
     name: "Patrones de Arquitectura y Coherencia"
     weight: 0.30
+    control_refs: ["ISO/IEC/IEEE 42010:2022", "ISO/IEC/IEEE 42030:2019 §6"]
     agent_checks:
-      - check_type: "grep_search"
-        query: "microservice|hexagonal|clean architecture|event-driven|cqrs"
-        paths: ["docs/", "src/"]
-      - check_type: "directory_structure_analysis"
-        target_dir: "src/"
+      - check_ref: "directory_structure_analysis"   # T1 — insumo
+      - check_ref: "architecture_conformance_review" # T3 — la nota la da el código real, no los docs
+        note: "Contrastar docs/ADRs contra el código: un README que declara 'hexagonal' no puntúa como hexagonal"
+    nplf_criteria:
+      - "Existe un patrón arquitectónico identificable y consistente en la estructura real del código (no solo declarado en docs)"
+      - "La dirección de dependencias respeta las capas del patrón (validado con dependency_graph_analysis)"
+      - "Los documentos de arquitectura (ADRs/diagramas) coinciden con lo que el código demuestra"
+      - "No hay fugas de abstracción entre capas en los módulos core (muestreo T3 con citas)"
+      - "El patrón elegido es proporcional a la carga y dominio del negocio (sin over-engineering)"
     rubric:
       1.0: "Sin patrón definido, monolito acoplado o código espagueti"
+      2.0: "Intento de modularización incompleto; capas declaradas pero rotas en la práctica"
       3.0: "Patrón modular visible pero con fugas de capas y acoplamiento temporal"
-      5.0: "Arquitectura limpia/hexagonal/microservicios perfectamente respetada"
+      4.0: "Patrón respetado en los módulos core; excepciones puntuales documentadas"
+      5.0: "Arquitectura limpia/hexagonal/microservicios perfectamente respetada y verificada contra el grafo de dependencias"
 
   - id: "D1.2"
     name: "Integración y Diseño de APIs"
     weight: 0.25
+    control_refs: ["OpenAPI 3.1", "OWASP ASVS 5.0 V4 (API & Web Service)"]
     agent_checks:
-      - check_type: "file_exists"
-        patterns: ["*openapi*.json", "*swagger*.yaml", "*.proto", "schema.graphql"]
-      - check_type: "grep_search"
-        query: "version|v1|v2|rate_limit|throttle"
-        paths: ["src/"]
+      - check_ref: "file_exists"
+        patterns: ["*openapi*.json", "*openapi*.yaml", "*swagger*.yaml", "*.proto", "schema.graphql"]
+      - check_ref: "code_judgment_review"
+        note: "Verificar en código real: versionamiento efectivo, idempotencia en endpoints mutantes, rate limiting activo"
+    nplf_criteria:
+      - "Existe contrato formal (OpenAPI/proto/GraphQL schema) y está sincronizado con los endpoints reales"
+      - "Las APIs públicas están versionadas y los breaking changes tienen estrategia de deprecación"
+      - "Los endpoints mutantes críticos implementan idempotencia"
+      - "Existe rate limiting/throttling en el borde (gateway o middleware)"
+      - "Las respuestas de error siguen un formato estándar consistente"
     rubric:
       1.0: "Sin contratos formalizados ni versionamiento de API"
+      2.0: "Documentación de API parcial y desincronizada del código"
       3.0: "OpenAPI parcial, sin rate-limiting ni manejo de idempotencia"
+      4.0: "Contratos versionados y sincronizados; idempotencia en flujos críticos"
       5.0: "Contratos estrictos versionados, idempotencia y gateway con throttling"
 
   - id: "D1.3"
     name: "Acoplamiento, Cohesión y DDD"
     weight: 0.25
+    control_refs: ["ISO/IEC 25010:2023 (Maintainability - Modularity)"]
     agent_checks:
-      - check_type: "dependency_graph_analysis"
+      - check_ref: "dependency_graph_analysis"   # T2 — madge/deptrac/ArchUnit/import-linter según stack
+      - check_ref: "architecture_conformance_review"
+        note: "Validar bounded contexts REALES: ¿los módulos comparten persistencia o modelos internos?"
+    nplf_criteria:
+      - "Cero dependencias circulares entre módulos de dominio (evidencia: output de la herramienta de grafo)"
+      - "Los bounded contexts no comparten tablas/esquemas de persistencia directamente"
+      - "La lógica de negocio vive en el dominio, no dispersa en controladores/utilidades"
+      - "Un cambio en un módulo no exige recompilar/redesplegar módulos no relacionados"
     rubric:
       1.0: "Dependencias circulares y lógica de negocio dispersa"
+      2.0: "Módulos nominales con ciclos frecuentes y modelos compartidos"
       3.0: "Módulos aislados pero compartiendo persistencia directamente"
-      5.0: "Bounded Contexts independientes con baja acoplamiento"
+      4.0: "Bounded contexts delimitados; acoplamiento residual solo en módulos legacy identificados"
+      5.0: "Bounded Contexts independientes con bajo acoplamiento verificado por herramienta"
 
   - id: "D1.4"
     name: "Escala y Resiliencia de Diseño"
     weight: 0.20
+    control_refs: ["AWS Well-Architected Reliability Pillar", "ISO/IEC 25010:2023 (Flexibility - Scalability)"]
     agent_checks:
-      - check_type: "grep_search"
+      - check_ref: "grep_search"
         query: "circuitbreaker|retry|backoff|timeout|bulkhead"
         paths: ["src/"]
+        note: "T1 — solo señal; confirmar con lectura de configuración real"
+      - check_ref: "code_judgment_review"
+        note: "Verificar que los timeouts/retries estén configurados en los clientes HTTP/DB reales, no solo importados"
+    nplf_criteria:
+      - "Todas las llamadas de red salientes tienen timeout explícito configurado"
+      - "Los retries usan backoff exponencial con límite (no retry infinito)"
+      - "Existe aislamiento de fallos (circuit breaker o bulkhead) en integraciones críticas"
+      - "El diseño contempla degradación elegante (feature flags, fallbacks) ante caída de dependencias"
     rubric:
       1.0: "Sin tolerancias a fallos; fallos en cascada frecuentes"
+      2.0: "Timeouts por defecto del framework sin configuración deliberada"
       3.0: "Timeouts y reintentos simples configurados"
-      5.0: "Circuit breakers, exponential backoff y degradación elegante"
+      4.0: "Timeouts, retries con backoff y circuit breakers en integraciones críticas"
+      5.0: "Circuit breakers, exponential backoff y degradación elegante verificados en código y probados"

@@ -7,10 +7,13 @@ Evaluación de la calidad interna del código fuente, el apego a buenas práctic
 Garantizar que la aplicación sea fácil de mantener, extender y refactorizar por cualquier desarrollador del equipo, minimizando el costo de mantenimiento futuro.
 
 ## 3. Referencia de Estándares de la Industria
-* **ISO/IEC 25010 (SQuaRE):** Modelo de calidad de software (Característica de Mantenibilidad: Modificabilidad, Modularidad, Reusabilidad, Analizabilidad).
+* **ISO/IEC 25010:2023 (SQuaRE):** Modelo de calidad de software vigente — 9 características (incluye Safety y Flexibility con escalabilidad); Mantenibilidad: Modificabilidad, Modularidad, Reusabilidad, Analizabilidad.
+* **ISO/IEC 5055:2021:** 139 debilidades CWE medibles de calidad estructural — convierte la deuda técnica de estimación en medición (junto con ATDM2, deuda en horas/costo).
 * **Clean Code (Robert C. Martin):** Principios de legibilidad y diseño de software.
 * **SonarQube Quality Gates:** Estándares de la industria para complejidad ciclomática, duplicación y code smells.
 * **Principios SOLID, DRY, KISS, YAGNI.**
+
+> **Alcance:** D2 califica el **codebase completo**. Los defectos en código con atribución IA se registran en el módulo DAI — el mismo defecto nunca baja el PHS dos veces (regla anti doble conteo en `config/weights_and_thresholds.yaml`).
 
 ---
 
@@ -40,7 +43,7 @@ Garantizar que la aplicación sea fácil de mantener, extender y refactorizar po
 
 ## 5. Metodología de Ejecución para el Agente IA
 
-1. **Revisión de Linters:** Verificar existencia de `.eslintrc`, `.rubocop.yml`, `phpcs.xml`, `tslint.json`, `flake8` o similar.
-2. **Búsqueda de Code Smells:** Ejecutar comandos de análisis estático o buscar patrones como `try {} catch (e) {}` vacíos, `console.log` dispersos o `TODO` crónicos.
-3. **Inspección de Tamaño de Archivos:** Identificar archivos con más de 500-1000 líneas de código (Clases Dios).
-4. **Verificación de Inyección de Dependencias:** Inspeccionar constructores y configuraciones de contenedores IoC.
+1. **Revisión de Linters:** Verificar existencia de `.eslintrc`, `.rubocop.yml`, `phpcs.xml`, `ruff.toml`, `biome.json` o similar, **y** que corran como gate en CI (existencia sola = señal T1, techo 3.0).
+2. **Métricas T2:** Ejecutar `lizard`/`radon` (complejidad) y `jscpd` (duplicación) y archivar outputs en `evidence/` — la deuda estructural se mide, no se estima.
+3. **SAST sintáctico:** Ejecutar `semgrep` para catch vacíos y promesas sin manejo — el grep por línea no detecta bloques multilínea.
+4. **Juicio T3 (SOLID):** Leer constructores, límites de clase y configuración IoC en una muestra representativa con citas `archivo:línea`; contar keywords (`interface`, `Autowired`) no evalúa diseño.
