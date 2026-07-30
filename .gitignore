@@ -1,3 +1,6 @@
 .DS_Store
 *.tmp
 *.log
+
+# Evidencia de assessments — JAMÁS se commitea (evidence_custody, checks_catalog.yaml)
+evidence/

@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://alyp.studio/paf/schemas/weights_and_thresholds.schema.json",
+  "title": "PAF Weights and Thresholds Config",
+  "type": "object",
+  "required": [
+    "framework_version",
+    "scoring_scale",
+    "nplf_method",
+    "scoring_principles",
+    "critical_sub_dimensions",
+    "unknown_policy",
+    "confidence_levels",
+    "profiles",
+    "thresholds",
+    "severity_taxonomy",
+    "double_counting_rules",
+    "delta_comparability_rules"
+  ],
+  "properties": {
+    "framework_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "author": { "type": "string" },
+    "scoring_scale": {
+      "type": "object",
+      "required": ["min", "max", "levels"],
+      "properties": {
+        "min": { "const": 1.0 },
+        "max": { "const": 5.0 },
+        "levels": { "type": "object", "minProperties": 5 }
+      }
+    },
+    "nplf_method": {
+      "type": "object",
+      "required": ["ratings", "criterion_states", "rules", "evidence_resolution"],
+      "properties": {
+        "ratings": {
+          "type": "object",
+          "required": ["F", "L", "P", "N"],
+          "additionalProperties": {
+            "type": "object",
+            "required": ["name", "range_pct", "score"],
+            "properties": {
+              "name": { "type": "string" },
+              "range_pct": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+              "score": { "enum": [1.0, 2.0, 3.5, 5.0] }
+            }
+          }
+        },
+        "criterion_states": {
+          "type": "array",
+          "items": { "enum": ["pass", "fail", "unknown"] },
+          "minItems": 3, "maxItems": 3
+        },
+        "rules": { "type": "array", "items": { "type": "string" } },
+        "evidence_resolution": {
+          "type": "object",
+          "required": ["t1_only_cap"],
+          "properties": { "t1_only_cap": { "const": "P" } }
+        },
+        "critical_criteria": { "type": "object" }
+      }
+    },
+    "scoring_principles": { "type": "object", "required": ["gating_rule", "evidence_tiers"] },
+    "critical_sub_dimensions": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "pattern": "^(D[1-9]|DAI)\\.[0-9]$" }
+    },
+    "unknown_policy": {
+      "type": "object",
+      "required": ["general", "critical_subdimension", "evidence_is_the_control", "non_critical_subdimension"]
+    },
+    "confidence_levels": { "type": "object", "required": ["high", "medium", "low"] },
+    "profiles": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "required": ["name", "target_phs", "weights"],
+        "properties": {
+          "name": { "type": "string" },
+          "target_phs": { "type": "number", "minimum": 1.0, "maximum": 5.0 },
+          "weights": {
+            "type": "object",
+            "required": ["D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9", "DAI"],
+            "additionalProperties": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+          }
+        }
+      }
+    },
+    "thresholds": { "type": "object", "minProperties": 5 },
+    "target_gap_interpretation": { "type": "object" },
+    "severity_taxonomy": {
+      "type": "object",
+      "required": ["critical", "high", "medium", "low"],
+      "additionalProperties": {
+        "type": "object",
+        "required": ["label", "hri", "sla", "definition"]
+      }
+    },
+    "double_counting_rules": { "type": "array", "items": { "type": "string" } },
+    "delta_comparability_rules": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

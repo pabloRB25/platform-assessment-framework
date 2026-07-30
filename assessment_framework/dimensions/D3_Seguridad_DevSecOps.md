@@ -11,7 +11,7 @@ Garantizar la confidencialidad, integridad y disponibilidad de la aplicación y 
 * **OWASP ASVS 5.0.0 (mayo 2025):** Estándar de verificación — 14 capítulos, incluye V3 Frontend Security, V9 Tokens y V10 OAuth/OIDC.
 * **OWASP Top 10:2025:** A03 es ahora *Software Supply Chain Failures* — literalmente el tema de DAI.1.
 * **OWASP API Security Top 10 (2023):** API1 (BOLA) y API5 (BFLA) — la clase #1 de vulnerabilidad en APIs, evaluada en D3.5.
-* **SLSA v1.2:** Build Track L0–L3 y Source Track L1–L4 (el Source L4 = two-party review ancla DAI.5 y D9.2).
+* **SLSA v1.2:** Build Track L0–L3 y Source Track L1–L4 (DAI.5 y D9.2 se alinean con el control de two-party review de Source L4; declarar un nivel SLSA exige todos sus requisitos y attestations).
 * **ISO/IEC 27001:2022 Anexo A:** controles de desarrollo seguro 8.25–8.34.
 
 ---

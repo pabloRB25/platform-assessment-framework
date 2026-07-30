@@ -44,7 +44,12 @@ sub_dimensions:
       - check_ref: "file_exists"
         patterns: [".gitleaks.toml", ".trufflehog.yaml", ".pre-commit-config.yaml"]
     nplf_criteria:
-      - "Cero secretos en el historial completo de git (evidencia: gitleaks JSON archivado)"
+      - id: "D3.2.C1"
+        text: "No existen secretos VIVOS (verificación de credencial activa con trufflehog sobre los hallazgos de gitleaks)"
+        critical: true
+        failure_effect: "gate"
+        evidence_required: "T2"
+      - "Cero secretos en el historial completo de git (evidencia: gitleaks JSON redactado y archivado)"
       - "Si hubo secretos históricos: están rotados y hay evidencia de la rotación"
       - "Los secretos de runtime viven en un gestor (Vault/Secrets Manager/parameter store), no en .env commiteados"
       - "Escaneo anti-secretos automatizado (pre-commit o CI)"
@@ -93,7 +98,11 @@ sub_dimensions:
         query: "zod|joi|class-validator|express-validator|helmet"
         paths: ["src/"]
     nplf_criteria:
-      - "Cero hallazgos ERROR de inyección en SAST (evidencia: semgrep JSON)"
+      - id: "D3.4.C1"
+        text: "Cero hallazgos ERROR de inyección en SAST (evidencia: semgrep JSON) — una inyección demostrable activa el gate directamente"
+        critical: true
+        failure_effect: "gate"
+        evidence_required: "T2"
       - "Toda entrada externa pasa por validación de esquema (Zod/Joi/class-validator o equivalente)"
       - "Acceso a datos exclusivamente vía consultas parametrizadas/ORM (sin concatenación)"
       - "Salidas renderizadas con escaping automático; usos de dangerouslySetInnerHTML/eval justificados y sanitizados"
@@ -118,7 +127,11 @@ sub_dimensions:
         paths: ["src/"]
         note: "T1 — localiza endpoints candidatos para la auditoría T3"
     nplf_criteria:
-      - "Los endpoints que reciben IDs verifican pertenencia del objeto al usuario/tenant (anti-BOLA) — muestreo con citas"
+      - id: "D3.5.C1"
+        text: "Ningún BOLA demostrable: los endpoints que reciben IDs verifican pertenencia del objeto al usuario/tenant — muestreo con citas; un acceso cruzado reproducible activa el gate directamente"
+        critical: true
+        failure_effect: "gate"
+        evidence_required: "T3"
       - "Las funciones administrativas verifican rol/permiso a nivel de función (anti-BFLA), no solo autenticación"
       - "En multi-tenant: el aislamiento se aplica en la capa de datos (RLS o filtro obligatorio), no solo en el controlador"
       - "Los IDs expuestos no son enumerables o hay control de acceso que hace irrelevante la enumeración"

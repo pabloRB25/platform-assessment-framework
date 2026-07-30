@@ -11,9 +11,9 @@ El objetivo es evaluar holísticamente una plataforma tecnológica a través de 
 
 **Tres principios rectores del scoring:**
 
-1. **Lo crítico no se promedia.** Siguiendo ISO/IEC 33020, TMMi y AWS Well-Architected (que cuenta HRIs y jamás promedia), cualquier sub-dimensión crítica con score ≤ 2.0 **acota el PHS reportable a 2.9** ("En Riesgo"). Una plataforma con secretos en producción no puede salir "Estable" por promedio.
-2. **Presencia de strings ≠ verdad.** La evidencia se clasifica en tiers: T1 (señales grep/file_exists, techo 3.0), T2 (métricas de herramienta reproducibles) y T3 (juicio experto con citas `archivo:línea`). Los scores altos exigen T2/T3.
-3. **Reproducibilidad ante todo.** Cada sub-dimensión se califica con el método **NPLF (ISO/IEC 33020)** sobre criterios binarios explícitos — dos corridas del mismo assessment deben dar el mismo resultado.
+1. **Lo crítico no se promedia.** Siguiendo ISO/IEC 33020, TMMi y AWS Well-Architected (que cuenta HRIs y jamás promedia), cualquier sub-dimensión crítica con score ≤ 2.0 — o cualquier **criterio-gate** en fail (secretos vivos, BOLA demostrable, backups irrecuperables, datos expuestos, dependencia alucinada) — **acota el PHS reportable a 2.9** ("En Riesgo"). Una plataforma con secretos en producción no puede salir "Estable" por promedio.
+2. **Presencia de strings ≠ verdad.** La evidencia se clasifica en tiers: T1 (señales grep/file_exists — solas, rating máximo **P = 2.0**), T2 (métricas de herramienta reproducibles) y T3 (juicio experto con citas `archivo:línea`). Los scores altos exigen T2/T3.
+3. **Reproducibilidad ante todo.** Cada sub-dimensión se califica con el método **NPLF (ISO/IEC 33020)** sobre criterios explícitos con tres estados (`pass`/`fail`/`unknown`) — dos corridas del mismo assessment deben dar el mismo resultado, y **desconocido nunca se confunde con incumplimiento**.
 
 ---
 
@@ -52,7 +52,7 @@ El objetivo es evaluar holísticamente una plataforma tecnológica a través de 
 #### D3: Seguridad Aplicativa y DevSecOps (SAMM v2.1 / ASVS 5.0)
 * **D3.1 Autenticación y Autorización:** OAuth2/OIDC, tokens, RBAC/ABAC — ASVS 5.0 V6/V8/V9/V10. *(crítica)*
 * **D3.2 Gestión de Secretos:** gitleaks sobre el **historial completo** de git + verificación de credencial viva (TruffleHog). *(crítica)*
-* **D3.3 Dependencias, Licencias y Supply Chain (SCA):** CVEs + inventario de licencias (GPL/AGPL en SaaS = riesgo legal) + SBOM, en una sola pasada de trivy/osv-scanner.
+* **D3.3 Dependencias, Licencias y Supply Chain (SCA):** CVEs + inventario de licencias + SBOM en una sola pasada de trivy/osv-scanner. El copyleft fuerte no es hallazgo automático: se contrasta contra la política de licencias del cliente (AGPL en servicio de red = prioridad de revisión legal) y se emite como "requiere revisión legal contextual".
 * **D3.4 Sanitización e Inyección:** SQLi/XSS/SSRF con SAST sintáctico + validación de esquemas. *(crítica)*
 * **D3.5 Seguridad de APIs en Runtime:** **BOLA/BFLA** (OWASP API Top 10 2023, API1/API5) — autorización a nivel de objeto y de función, auditada endpoint por endpoint. *(crítica)*
 
@@ -89,21 +89,21 @@ El objetivo es evaluar holísticamente una plataforma tecnológica a través de 
 * **D8.3 Dependencia de Personas (Bus Factor):** `git shortlog -sn` por componente crítico.
 * **D8.4 Cuadrante de Deuda Técnica:** Deuda inventariada y **medida** (ISO 5055/ATDM2), con capacidad asignada.
 
-#### D9: SDLC y Gestión del Cambio *(escala anclada a SLSA v1.2 Source Track)*
-* **D9.1 Branching y Protección de Ramas:** Branch protection verificable por API; todo cambio vía PR. *(crítica)*
-* **D9.2 Calidad del Code Review:** Two-party review con enforcement (SLSA Source L4), PRs revisables, reviews sustantivos.
+#### D9: SDLC y Gestión del Cambio *(controles alineados con SLSA v1.2 Source Track — declarar un nivel SLSA exige verificar todos sus requisitos y attestations, no un control aislado)*
+* **D9.1 Branching y Protección de Ramas:** Branch protection verificable por API; todo cambio vía PR. *(crítica; push directo sin protección = criterio-gate)*
+* **D9.2 Calidad del Code Review:** Two-party review con enforcement (alineado con SLSA Source L4), CODEOWNERS, PRs revisables, reviews sustantivos.
 * **D9.3 Trazabilidad Commit → Ticket → Deploy:** Auditar qué se desplegó y por qué, en segundos.
-* **D9.4 Hotfixes y Cambios de Emergencia:** Proceso auditable + postmortems.
+* **D9.4 Hotfixes y Cambios de Emergencia:** Proceso auditable + postmortems en < 48h.
 
 #### DAI: Módulo Especializado de Código Agéntico e Inteligencia Artificial
-*(Evalúa SOLO código con atribución IA — sin atribución, opera sobre los últimos 12 meses con confianza baja.)*
+*(DAI.2–DAI.4 evalúan SOLO código con atribución IA verificable; DAI.1 y DAI.5 operan sobre el repo y el proceso completos. Sin atribución: DAI.0 puntúa bajo — ese es el hallazgo — y DAI.2–DAI.4 quedan en `unknown` con pesos redistribuidos; nunca se asume que el código reciente es de IA.)*
 * **DAI.0 Atribución y Trazabilidad de Código IA:** El mecanismo que define el universo del módulo — trailers de commit (`Co-Authored-By`), política en `AGENTS.md`/`CLAUDE.md`, etiquetas de PR.
 * **DAI.1 Anti-Alucinación y Supply Chain (Slopsquatting):** Registry audit ejecutable (osv-scanner + APIs npm/PyPI: existencia, fecha, descargas). *(crítica)*
 * **DAI.2 Robustez ante Casos Borde (Happy-Path Bias):** Async sin manejo detectado con Semgrep (sintáctico) sobre el universo IA.
 * **DAI.3 Cohesión y Duplicación Agéntica:** jscpd sobre el universo IA vs. línea base del proyecto.
 * **DAI.4 Anti-Phantom Tests:** Tautologías + mutation testing como evidencia de efectividad.
-* **DAI.5 Gobernanza y Supervisión Humana:** Anclada a **SLSA v1.2 Source Track L4** (two-party review con enforcement).
-* **DAI.6 Seguridad de Features LLM (condicional):** OWASP LLM Top 10 2025 (LLM01/LLM02/LLM06) — solo si la plataforma usa LLMs en runtime; si no, N/A sin penalizar.
+* **DAI.5 Gobernanza y Supervisión Humana:** Alineada con el control de **two-party review de SLSA v1.2 Source Track L4** (con enforcement de plataforma).
+* **DAI.6 Seguridad de Features LLM (condicional):** OWASP LLM Top 10 **2025** — LLM01 Prompt Injection, LLM02 Sensitive Information Disclosure, LLM05 Improper Output Handling, LLM06 Excessive Agency — solo si la plataforma usa LLMs en runtime; si no, N/A sin penalizar.
 
 ---
 
@@ -111,7 +111,7 @@ El objetivo es evaluar holísticamente una plataforma tecnológica a través de 
 
 #### 4.1 Método NPLF por Sub-Dimensión (ISO/IEC 33020)
 
-Cada sub-dimensión define en su YAML una lista de **criterios binarios** (`nplf_criteria`). El agente evalúa cada criterio con evidencia citada y el % de cumplimiento mapea a:
+Cada sub-dimensión define en su YAML una lista de **criterios** (`nplf_criteria`) con tres estados posibles: `pass`, `fail`, `unknown`. El % de cumplimiento se calcula **solo sobre pass+fail** (los `unknown` salen del denominador y degradan la confianza) y mapea a:
 
 | Rating | % criterios cumplidos | Score |
 | :---: | :---: | :---: |
@@ -120,23 +120,27 @@ Cada sub-dimensión define en su YAML una lista de **criterios binarios** (`nplf
 | **P** (Partially) | 16–50% | 2.0 |
 | **N** (Not) | 0–15% | 1.0 |
 
-Las rúbricas narrativas (ancladas en 1.0/2.0/3.0/4.0/5.0 en los YAML) sirven de sanity-check cualitativo. **Prohibido reportar decimales no derivados del método** (un "3.74" sin ancla es falsa precisión).
+Reglas adicionales:
+* **Criterios-gate:** un criterio puede declararse `critical: true, failure_effect: gate` — su `fail` activa el gating directamente (equivale a sub-dimensión ≤ 2.0), sin esperar al promedio. Así, una sub-dimensión que aprueba 4 de 5 criterios pero falla el crítico (p.ej. secretos vivos) no puede esconderse detrás de un "L = 3.5".
+* **Resolución T1/NPLF:** una sub-dimensión soportada **solo por evidencia T1** tiene rating máximo **P (2.0)** — el dominio de scores se mantiene cerrado en {1.0, 2.0, 3.5, 5.0}; no existe el "techo 3.0".
+* Las rúbricas narrativas (ancladas 1.0–5.0 en los YAML) son sanity-check cualitativo. **Prohibido reportar decimales no derivados del método** (un "3.74" sin ancla es falsa precisión).
 
-#### 4.2 Tiers de Evidencia (techo de score)
+#### 4.2 Tiers de Evidencia
 
-| Tier | Tipo | Ejemplos | Score máximo |
-| :---: | :--- | :--- | :---: |
-| **T1** | Señal | grep, file_exists | **3.0** — indica, nunca confirma |
-| **T2** | Métrica de herramienta | gitleaks, Semgrep, Trivy/OSV, jscpd, lizard, Prowler, Stryker, endoflife.date | 5.0 |
-| **T3** | Juicio con evidencia | Lectura real de código/arquitectura, citas `archivo:línea` obligatorias | 5.0 |
+| Tier | Tipo | Ejemplos | Efecto en el score |
+| :---: | :--- | :--- | :--- |
+| **T1** | Señal | grep, file_exists | Sola ⇒ rating máximo **P (2.0)** — indica, nunca confirma |
+| **T2** | Métrica de herramienta | gitleaks, Semgrep, Trivy/OSV, jscpd, lizard, Prowler, Stryker, endoflife.date | Elegible F (5.0) |
+| **T3** | Juicio con evidencia | Lectura real de código/arquitectura, citas `archivo:línea` obligatorias | Elegible F (5.0) |
 
-El contrato de ejecución de cada check (herramienta, comando, parsing, mapeo a score) vive en `config/checks_catalog.yaml`.
+El contrato de ejecución de cada check (herramienta, comando, parsing, mapeo a score), la **custodia de evidencia** (redacción en origen, cifrado, retención, `evidence/` jamás commiteado) y los **requisitos del runner seguro** (argv, contenedores efímeros, red deshabilitada por defecto, versiones pinneadas por digest) viven en `config/checks_catalog.yaml`.
 
-#### 4.3 Evidencia No Disponible (N/D) y Confianza
+#### 4.3 Estado `unknown` y Confianza — desconocido ≠ incumplimiento
 
-* Check no ejecutable en **sub-dimensión crítica** ⇒ score **1.0** con nota "evidencia no disponible". La ausencia de evidencia en un control crítico ES el hallazgo.
-* Check no ejecutable en sub-dimensión no crítica ⇒ se excluye renormalizando pesos y se degrada la confianza.
-* Cada dimensión reporta `confidence: Alta | Media | Baja` en el informe; todo N/D se lista en "Limitaciones y Alcance".
+* Check no ejecutable ⇒ los criterios afectados quedan en **`unknown`**: salen del denominador NPLF y se listan en "Limitaciones y Alcance". **No** se convierte en fail: "no pude comprobarlo" no es "no existe".
+* `unknown` en **sub-dimensión crítica** ⇒ `confidence: low`, el PHS se marca **PROVISIONAL** y el informe no puede declarar un estado ≥ "Bueno / Estable" hasta completar la evidencia.
+* **Excepción:** cuando producir la evidencia ES el control evaluado (auditoría/logging habilitado, historial de pipeline existente), la ausencia sí es `fail`.
+* Cada dimensión reporta `confidence: Alta | Media | Baja` en el informe.
 
 #### 4.4 Cálculo del Puntaje por Dimensión ($SD$)
 
@@ -151,12 +155,12 @@ $$PHS_{ponderado} = \sum_{k=1}^{10} (SD_k \times W_k) \quad \text{donde} \quad \
 Pero el PHS **reportable** aplica las gating rules (`config/weights_and_thresholds.yaml`):
 
 * Sub-dimensiones críticas: **D3.1, D3.2, D3.4, D3.5, D6.4, D9.1, DAI.1**.
-* Si cualquiera de ellas ≤ 2.0 ⇒ $PHS_{reportable} = \min(PHS_{ponderado},\ 2.9)$.
-* El informe muestra **siempre**: PHS + **HRIs abiertos: N** (hallazgos Crítico + Alto, nunca promediados) + la sub-dimensión que activa el techo.
+* Si cualquiera de ellas ≤ 2.0 — **o cualquier criterio-gate está en `fail`** — ⇒ $PHS_{reportable} = \min(PHS_{ponderado},\ 2.9)$.
+* El informe muestra **siempre**: PHS + **HRIs abiertos: N** (hallazgos Crítico + Alto, nunca promediados) + la sub-dimensión o criterio que activa el techo.
 
 #### 4.6 Pesos por Defecto según Tipo de Plataforma ($W_k$)
 
-| Dimensión | SaaS/Core | Fintech/Crítica | MVP | AI-Native |
+| Dimensión | SaaS/Core | Fintech/Crítica | MVP/Startup | AI-Native |
 | :--- | :---: | :---: | :---: | :---: |
 | **D1: Arquitectura e Integración** | 11% | 13% | 8% | 9% |
 | **D2: Código y Mantenibilidad** | 11% | 9% | 10% | 9% |
@@ -195,7 +199,7 @@ Taxonomía de severidad de hallazgos: **Crítico** (HRI, ≤ 7 días) · **Alto*
 2. **Technical Deep-Dive Report:** Hallazgos por sub-dimensión con evidencia `archivo:línea` + commit + output de herramienta archivado en `evidence/` (re-verificable por hash).
 3. **AI Code Integrity & Risk Audit:** Reporte específico sobre atribución, calidad y riesgos del código agéntico.
 4. **Remediation Roadmap (Prioridad vs. Esfuerzo):** Matriz 2x2 para orientar la inversión del cliente.
-5. **Delta Report (re-evaluaciones):** Evolución PHS y HRIs vs. el assessment anterior (milestones à la AWS WA Tool) — el valor comercial recurrente: "PHS 2.8 → 3.6 en 6 meses".
-6. **Limitaciones y Alcance:** Sección obligatoria del informe — accesos disponibles, checks N/D, supuestos y vigencia (heredada del assessment MNK original).
+5. **Delta Report (re-evaluaciones):** Evolución PHS y HRIs vs. el assessment anterior (milestones à la AWS WA Tool) — el valor comercial recurrente: "PHS 2.8 → 3.6 en 6 meses". Solo es comparable con mismo perfil, alcance, versión del framework/catálogo y herramientas pinneadas (`delta_comparability_rules`); si no, se reporta como delta indicativo.
+6. **Limitaciones y Alcance:** Sección obligatoria del informe — accesos disponibles, controles en `unknown`, supuestos, vigencia y hash del `evidence/manifest.json` (heredada del assessment MNK original).
 
 Todo informe lleva **firma de auditor humano** antes de la entrega (paso bloqueante del pipeline): el mismo Human-in-the-Loop que el framework exige al código de los clientes en DAI.5.

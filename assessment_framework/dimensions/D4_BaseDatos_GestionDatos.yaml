@@ -90,7 +90,11 @@ sub_dimensions:
         note: "Sin acceso a infra/ ni consola cloud => N/D con not_available_policy (esta evidencia no se infiere del código)"
     nplf_criteria:
       - "Backups automáticos con retención definida (evidencia: IaC o configuración cloud)"
-      - "Restauración PROBADA al menos una vez (evidencia documental o de pipeline)"
+      - id: "D4.4.C1"
+        text: "Los backups son RESTAURABLES: restauración probada al menos una vez con evidencia — backups irrecuperables activan el gate directamente"
+        critical: true
+        failure_effect: "gate"
+        evidence_required: "T2"
       - "Redundancia acorde al perfil (Multi-AZ/replicas para SaaS productivo)"
       - "RPO/RTO definidos y conocidos por el equipo"
     rubric:

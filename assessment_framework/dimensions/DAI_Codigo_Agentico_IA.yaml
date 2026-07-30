@@ -1,12 +1,12 @@
 dimension_id: "DAI"
 name: "Código Agéntico e Inteligencia Artificial"
 description: "Evaluación de la calidad, seguridad, proveniencia y robustez de código generado por Agentes de IA (LLMs)"
-scope_note: "DAI evalúa SOLO código con atribución IA (definida por DAI.0). D2 evalúa el codebase completo — el mismo defecto nunca penaliza dos veces (double_counting_rules en weights_and_thresholds.yaml). Si no existe mecanismo de atribución, DAI opera sobre el código de los últimos 12 meses con confidence: low."
+scope_note: "DAI.2-DAI.4 evalúan SOLO código con atribución IA verificable (definida por DAI.0); DAI.1 (dependencias) y DAI.5 (gobernanza de proceso) operan sobre el repo y el proceso completos. D2 evalúa el codebase completo — el mismo defecto nunca penaliza dos veces (double_counting_rules). Si no existe mecanismo de atribución: DAI.0 puntúa bajo (ese ES el hallazgo) y DAI.2-DAI.4 quedan en unknown con pesos redistribuidos — NUNCA se asume que el código reciente es de IA."
 standards_reference:
-  - "OWASP Top 10 for LLM Applications (2025)"
+  - "OWASP Top 10 for LLM Applications (edición 2025 — numeración oficial: LLM01 Prompt Injection, LLM02 Sensitive Information Disclosure, LLM05 Improper Output Handling, LLM06 Excessive Agency)"
   - "OWASP Top 10:2025 — A03 Software Supply Chain Failures (conexión directa con DAI.1)"
-  - "SLSA v1.2 — Source Track L1-L4 (L4 two-party review = DAI.5) y Build Track (provenance)"
-  - "NIST SP 800-218A — Secure Software Development Practices for Generative AI"
+  - "SLSA v1.2 — Source Track L1-L4 (DAI.5 se alinea con el control de two-party review de L4; declarar el nivel exige todos sus requisitos) y Build Track (provenance)"
+  - "NIST SP 800-218A (dirigido a productores/adquirentes de modelos y sistemas de IA — su uso aquí para código escrito con asistentes es una ADAPTACIÓN documentada, no una equivalencia directa)"
   - "DORA AI Capabilities Model (2025)"
   - "Mutation Testing Standards (Stryker / PITest)"
   - "ISO/IEC 25010:2023 Software Quality Model"
@@ -43,7 +43,11 @@ sub_dimensions:
         query: "rejectUnauthorized:\\s*false|NODE_TLS_REJECT_UNAUTHORIZED|verify=False"
         paths: ["src/"]
     nplf_criteria:
-      - "Toda dependencia directa existe en el registro oficial con historial creíble (evidencia: registry audit)"
+      - id: "DAI.1.C1"
+        text: "Ninguna dependencia alucinada: toda dependencia directa existe en el registro oficial con historial creíble (evidencia: registry audit) — una dependencia inexistente o slopsquatted activa el gate directamente"
+        critical: true
+        failure_effect: "gate"
+        evidence_required: "T2"
       - "Sin dependencias recientes de bajo uso con nombres similares a paquetes populares (typosquatting)"
       - "Sin atajos de seguridad introducidos por IA (TLS deshabilitado, CORS *, verify=False)"
       - "Lockfiles estrictos impiden resolución sorpresiva de paquetes"
@@ -122,37 +126,37 @@ sub_dimensions:
   - id: "DAI.5"
     name: "Gobernanza y Supervisión Humana (Human-in-the-Loop)"
     weight: 0.15
-    control_refs: ["SLSA v1.2 Source Track L4 (two-party review — exactamente este control)", "NIST SP 800-218A (PO.2)", "DORA AI Capabilities Model"]
+    control_refs: ["SLSA v1.2 Source Track — control de two-party review (L4); declarar el nivel exige el resto de requisitos y attestations", "NIST SP 800-218A (PO.2, adaptación)", "DORA AI Capabilities Model"]
     agent_checks:
       - check_ref: "git_pr_review_analysis"
         note: "Sobre PRs con contenido IA-atribuido (DAI.0): ¿tuvieron revisión humana sustantiva? (cruce D9.2)"
     nplf_criteria:
       - "Todo PR con código IA recibe revisión humana de un autor distinto antes del merge"
       - "La revisión es sustantiva (comentarios/cambios solicitados en la muestra, no rubber-stamp)"
-      - "El enforcement es de plataforma (branch protection), no de costumbre — SLSA Source L4"
+      - "El enforcement es de plataforma (branch protection), no de costumbre — alineado con SLSA Source L4"
       - "Los cambios IA en rutas críticas (auth, pagos, infra) tienen revisión reforzada"
     rubric:
       1.0: "Código generado por IA fusionado directamente sin revisión humana de pares"
       2.0: "Revisión humana esporádica dependiente del desarrollador"
       3.0: "PRs generados por IA revisados obligatoriamente por al menos un desarrollador senior"
       4.0: "Two-party review con enforcement de plataforma sobre todo el código IA"
-      5.0: "SLSA Source L4 + política de gobernanza agéntica establecida, commits marcados y revisión Human-in-the-Loop"
+      5.0: "Two-party review con enforcement (control alineado con SLSA Source L4) + política de gobernanza agéntica establecida, commits marcados y revisión Human-in-the-Loop"
 
   - id: "DAI.6"
     name: "Seguridad de Features LLM en Runtime (condicional)"
     weight: 0.10
-    conditional: "Solo aplica si la plataforma integra LLMs en runtime (chatbots, generación, agentes). Si no aplica: marcar N/A y redistribuir el peso proporcionalmente entre las demás sub-dimensiones DAI (no cuenta como N/D)."
-    control_refs: ["OWASP LLM Top 10 2025 — LLM01 Prompt Injection, LLM02 Insecure Output Handling, LLM06 Sensitive Information Disclosure", "NIST SP 800-218A"]
+    conditional: "Solo aplica si la plataforma integra LLMs en runtime (chatbots, generación, agentes). Si no aplica: marcar N/A y redistribuir el peso proporcionalmente entre las demás sub-dimensiones DAI (no cuenta como unknown)."
+    control_refs: ["OWASP LLM Top 10 2025 — LLM01 Prompt Injection", "LLM02 Sensitive Information Disclosure", "LLM05 Improper Output Handling", "LLM06 Excessive Agency", "NIST SP 800-218A (adaptación)"]
     agent_checks:
       - check_ref: "llm_feature_security_review"
     nplf_criteria:
-      - "El input del usuario no se concatena sin control a prompts de sistema (mitigación de prompt injection)"
-      - "El output del LLM se trata como no confiable: sanitizado antes de renderizar/ejecutar/persistir"
-      - "Los prompts no exponen secretos ni datos personales innecesarios al proveedor del modelo"
-      - "Las acciones que el LLM puede disparar (tools/funciones) tienen autorización propia, no heredada ciegamente"
+      - "LLM01: el input del usuario no se concatena sin control a prompts de sistema (mitigación de prompt injection)"
+      - "LLM02: los prompts y respuestas no exponen secretos ni datos personales innecesarios al proveedor del modelo"
+      - "LLM05: el output del LLM se trata como no confiable — sanitizado antes de renderizar/ejecutar/persistir"
+      - "LLM06 (Excessive Agency): las tools/acciones que el LLM puede disparar tienen autorización propia y alcance mínimo, no permisos heredados ciegamente; las acciones irreversibles exigen confirmación humana"
     rubric:
       1.0: "Input de usuario directo al prompt de sistema y output del LLM ejecutado/renderizado sin sanitizar"
       2.0: "Mitigaciones parciales sin diseño deliberado"
       3.0: "Separación básica de prompts y sanitización de output en flujos principales"
-      4.0: "Controles LLM01/LLM02/LLM06 implementados y revisados"
-      5.0: "Amenazas LLM modeladas, controles testeados y monitoreo de abuso en producción"
+      4.0: "Controles LLM01/LLM02/LLM05/LLM06 implementados y revisados"
+      5.0: "Amenazas LLM modeladas, controles testeados, agencia del LLM acotada por diseño y monitoreo de abuso en producción"

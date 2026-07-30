@@ -7,7 +7,7 @@ Evaluación del proceso de ciclo de vida de desarrollo de software (SDLC), el co
 Garantizar la integridad, auditabilidad y transparencia de cada modificación introducida en el código fuente, previniendo inyecciones de código no autorizadas o despliegues fuera de proceso.
 
 ## 3. Referencia de Estándares de la Industria
-* **SLSA v1.2 Source Track (Levels 1 to 4):** Estándar de integridad en el control de fuentes y código de origen.
+* **SLSA v1.2 Source Track (Levels 1 to 4):** Estándar de integridad en el control de fuentes. **Nota de rigor:** two-party review es *un* requisito de Source L4, no todo L4 — el nivel también exige controles continuos, evidencia contemporánea, Source Provenance y VSA emitida por el sistema de control de fuentes. Este framework evalúa controles **alineados con** SLSA; solo declara un nivel cuando se verifican todos sus requisitos y attestations.
 * **ISO/IEC/IEEE 12207:2017:** Procesos del ciclo de vida del software.
 * **Conventional Commits 1.0.0:** Especificación para estructuración legible y parseable de mensajes de commit.
 
@@ -18,12 +18,12 @@ Garantizar la integridad, auditabilidad y transparencia de cada modificación in
 ### D9.1 Branching y Protección de Ramas (Sub-Dimensión Crítica)
 * **1.0 (Inicial):** Commits directos permitidos a la rama principal (`main`/`master`) sin restricciones ni branch protection.
 * **3.0 (En Desarrollo):** Branch protection activado en GitHub/GitLab requiring Pull Requests para fusionar a `main`.
-* **5.0 (Optimizado):** Branch protection estricto reforzado vía API (SLSA Source L3+), firmas GPG/SSH obligatorias en commits y deshabilitación de `force push` / `bypass`.
+* **5.0 (Optimizado):** Branch protection estricto reforzado vía API (control alineado con SLSA Source L3+), firmas GPG/SSH obligatorias en commits y deshabilitación de `force push` / `bypass`.
 
 ### D9.2 Calidad del Code Review (Two-Party Review)
 * **1.0 (Inicial):** Autofusión de PRs por el mismo autor sin aprobación externa; reviews nominales ("LGTM") sin inspección sustantiva.
 * **3.0 (En Desarrollo):** Al menos un desarrollador aprueba el PR antes de fusionar; verificación automatizada de status checks.
-* **5.0 (Optimizado):** Enforcement de Two-Party Review estricto (SLSA Source L4), CODEOWNERS configurados por módulo crítico y plantilla de PR obligatoria con lista de chequeo de pruebas.
+* **5.0 (Optimizado):** Enforcement de Two-Party Review estricto (control alineado con SLSA Source L4), CODEOWNERS configurados por módulo crítico y plantilla de PR obligatoria con lista de chequeo de pruebas.
 
 ### D9.3 Trazabilidad Commit → Ticket → Deploy
 * **1.0 (Inicial):** Commits con mensajes ambiguos ("fixed bug", "changes"); imposibilidad de vincular un cambio en producción con su tarea original.

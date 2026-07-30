@@ -3,6 +3,8 @@
 
 **Fecha de Evaluación:** {{EVALUATION_DATE}}  
 **Plataforma / Proyecto:** {{PROJECT_NAME}}  
+**Commit / Revisión Evaluada:** {{COMMIT_SHA}}  
+**Versión del Framework / Catálogo:** {{FRAMEWORK_VERSION}} / {{CATALOG_VERSION}}  
 **Perfil Aplicado:** {{PROFILE_NAME}} (Target PHS: {{TARGET_PHS}})  
 **Evaluador:** {{EVALUATOR_AGENT}}  
 **Auditor Humano Responsable:** {{HUMAN_AUDITOR_SIGNATURE}}  
@@ -11,11 +13,17 @@
 
 ### 1. Resumen Ejecutivo y Platform Health Score (PHS)
 
-#### Platform Health Score Reportable: **{{PHS_REPORTABLE}} / 5.0** (PHS Ponderado: {{PHS_PONDERADO}})
+#### Platform Health Score Reportable: **{{PHS_REPORTABLE}} / 5.0** (PHS Ponderado: {{PHS_PONDERADO}}){{PHS_PROVISIONAL_FLAG}}
 **Estado de Salud:** **{{HEALTH_STATUS}}**  
-**Conteo de Hallazgos de Alto Riesgo (HRIs Abiertos):** **{{HRI_COUNT}}**  
-**Gating Rule Activada:** {{GATING_RULE_STATUS}} *(Si existe sub-dimensión crítica <= 2.0, el PHS reportable se acota a máximo 2.9)*  
+**Conteo de Hallazgos de Alto Riesgo (HRIs Abiertos):** **{{HRI_COUNT}}** ({{HRI_CRITICAL_COUNT}} Críticos / {{HRI_HIGH_COUNT}} Altos)  
+**Gating Rule Activada:** {{GATING_RULE_STATUS}} *(Si existe sub-dimensión crítica ≤ 2.0 o un criterio-gate en fail, el PHS reportable se acota a máximo 2.9)*  
+**Gap vs. Nivel Objetivo del Perfil:** {{TARGET_GAP}}  
 **Diagnóstico Sintético:** {{EXECUTIVE_SUMMARY}}
+
+> Si algún control crítico quedó en estado **unknown** (evidencia no disponible), el PHS se marca **PROVISIONAL**: el informe no puede declarar un estado ≥ "Bueno / Estable" hasta completar esa evidencia. Desconocido ≠ incumplimiento.
+
+#### Evolución vs. Assessment Anterior
+{{DELTA_SECTION}} <!-- "Baseline inicial — sin assessment previo" | tabla PHS anterior→actual + delta por dimensión + HRIs cerrados/nuevos. Si no se cumplen delta_comparability_rules: "delta indicativo, no comparable" con el motivo. -->
 
 #### Mapa de Madurez por Dimensión (10 Dimensiones - NPLF / ISO 33020)
 
@@ -32,6 +40,8 @@
 | **D9** | SDLC y Gestión del Cambio | {{D9_SCORE}} | {{D9_WEIGHT}} | {{D9_CONF}} | {{D9_STATUS}} |
 | **DAI**| Código Agéntico e IA | {{DAI_SCORE}} | {{DAI_WEIGHT}} | {{DAI_CONF}} | {{DAI_STATUS}} |
 
+*Confianza: **Alta** (T2/T3 completa, sin unknown en críticas) · **Media** (checks parciales) · **Baja** (unknown en crítica — bloquea dictamen de alta confianza).*
+
 ---
 
 ### 2. Auditoría de Código Generado por IA (Módulo DAI)
@@ -41,22 +51,33 @@
 * **Robustez de Casos Borde (Happy-Path Bias - DAI.2):** {{DAI_HAPPYPATH_STATUS}}
 * **Pruebas Fantasma (Phantom Tests - DAI.4):** {{DAI_PHANTOMTESTS_STATUS}}
 * **Supervisión Humana (Human-in-the-Loop - DAI.5):** {{DAI_HITL_STATUS}}
+* **Seguridad de Features LLM (DAI.6, si aplica):** {{DAI_LLM_STATUS}}
+
+*Nota de universo: sin atribución verificable, DAI.2–DAI.4 se reportan como `unknown` (no se asume que el código reciente sea de IA); DAI.1 y DAI.5 se evalúan sobre el repo y el proceso completos.*
 
 ---
 
 ### 3. Hallazgos Críticos y Matriz de Riesgos (HRIs)
 
-| ID Hallazgo | Dimensión | Severidad | Descripción del Hallazgo / Brecha | Evidencia Técnica (Cita `archivo:línea`) |
-| :--- | :--- | :---: | :--- | :--- |
-| **H-01** | {{H1_DIM}} | {{H1_SEV}} | {{H1_DESC}} | {{H1_EVID}} |
-| **H-02** | {{H2_DIM}} | {{H2_SEV}} | {{H2_DESC}} | {{H2_EVID}} |
+Severidad: **Crítico** (HRI, ≤ 7 días) · **Alto** (HRI, ≤ 30 días) · **Medio** (trimestre) · **Bajo** (backlog) — definiciones en `config/weights_and_thresholds.yaml`.
+
+| ID Hallazgo | Dimensión | Severidad | Descripción del Hallazgo / Brecha | Evidencia Técnica (Cita `archivo:línea`) | Control Ref. |
+| :--- | :--- | :---: | :--- | :--- | :--- |
+| **H-01** | {{H_DIM}} | {{H_SEV}} | {{H_DESC}} | {{H_EVID}} | {{H_CONTROL_REF}} |
+
+<!-- Repetir una fila por hallazgo (H-02, H-03, …) — la tabla lista TODOS los Crítico/Alto/Medio; los Bajos pueden agruparse en anexo. Evidencia = cita archivo:línea + commit + archivo en evidence/ referenciado por manifest.json. -->
 
 ---
 
 ### 4. Limitaciones y Alcance del Assessment
 
-* **Controles No Ejecutables / N/D:** {{ND_LIMITATIONS_LIST}}
+* **Alcance evaluado:** {{SCOPE_DESCRIPTION}} <!-- repos, ramas, commit, ambientes -->
+* **Accesos disponibles durante la evaluación:** {{ACCESS_INVENTORY}}
+* **Controles en estado unknown (evidencia no disponible):** {{UNKNOWN_LIST}} <!-- cada uno con su sub-dimensión y efecto sobre confianza/estado -->
 * **Supuestos de Evaluación:** {{EVALUATION_ASSUMPTIONS}}
+* **Fuera de alcance:** {{OUT_OF_SCOPE}}
+* **Integridad de la evidencia:** SHA-256 del `evidence/manifest.json`: `{{MANIFEST_HASH}}`
+* **Vigencia:** Este diagnóstico refleja el estado en el commit {{COMMIT_SHA}} a fecha {{EVALUATION_DATE}}; no cubre cambios posteriores.
 
 ---
 

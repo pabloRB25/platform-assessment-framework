@@ -1,13 +1,39 @@
 # Catálogo de Checks — contrato de ejecución por check_type
 # Todo check referenciado en dimensions/*.yaml DEBE estar definido aquí:
 # herramienta, comando, parsing del output y mapeo umbral -> score.
-# Los tiers (T1/T2/T3) y sus techos de score están en weights_and_thresholds.yaml.
-catalog_version: "1.0.0"
+# Los tiers (T1/T2/T3) y sus techos están en weights_and_thresholds.yaml
+# (T1 solo => rating máximo P = 2.0).
+catalog_version: "1.1.0"
 
 conventions:
-  evidence_dir: "evidence/"        # Todo output crudo se archiva con hash SHA-256 (ver pipeline paso de archivo)
-  na_handling: "Si la herramienta no está disponible o el recurso no es accesible, registrar N/D y aplicar not_available_policy — NUNCA sustituir silenciosamente por un grep."
+  evidence_dir: "evidence/"        # Todo output se archiva con hash SHA-256 (ver pipeline paso de archivo)
+  unknown_handling: "Si la herramienta no está disponible o el recurso no es accesible, los criterios afectados quedan en estado unknown (unknown_policy en weights_and_thresholds.yaml) — NUNCA sustituir silenciosamente por un grep, NUNCA convertir unknown en fail salvo que producir la evidencia sea el control evaluado."
   citation_format: "archivo:línea + commit SHA + nombre del archivo de evidencia"
+
+# ------------------------------------------------------------
+# CUSTODIA DE EVIDENCIA — evidence/ no puede volverse un
+# repositorio de credenciales comprometidas
+# ------------------------------------------------------------
+evidence_custody:
+  - "Redacción EN LA HERRAMIENTA, no solo en el informe: gitleaks con --redact, trufflehog sin --print-secrets. Ningún valor de secreto viaja a evidence/."
+  - "evidence/ NUNCA se commitea (entrada obligatoria en .gitignore del repo evaluado y del repo del assessment)."
+  - "Evidencia cifrada en reposo cuando sale de la máquina del auditor; acceso restringido al equipo del assessment."
+  - "Política de retención: la evidencia se destruye al cierre del engagement salvo acuerdo contractual distinto; la destrucción se registra."
+  - "Al cerrar el paso de archivo, se corre un secret-scan SOBRE evidence/ mismo — si detecta valores vivos, el archivo se regenera con redacción antes de continuar."
+  - "manifest.json no contiene valores sensibles: solo rutas, hashes, herramienta+versión (digest), comando/argv, commit objetivo, timestamps y exit codes. El manifest se firma (o como mínimo se publica su SHA-256 en el informe) para hacerlo verificable."
+
+# ------------------------------------------------------------
+# MODELO DE EJECUCIÓN SEGURO (requisitos normativos del runner)
+# El catálogo documenta comandos legibles; un runner automatizado
+# DEBE cumplir esto antes de ejecutar checks sobre repos no confiables:
+# ------------------------------------------------------------
+execution_model:
+  - "Comandos como arrays de argumentos (argv), nunca strings interpretados por un shell."
+  - "Ejecución en contenedor efímero con filesystem de solo lectura salvo evidence/."
+  - "Red deshabilitada por defecto; solo los checks que la requieren (version_check, package_registry_audit) la habilitan hacia endpoints allowlisted."
+  - "Timeouts y límites de CPU/memoria por check; captura de exit code, stdout y stderr en el manifest."
+  - "Credenciales cloud read-only y de alcance mínimo; jamás credenciales de escritura."
+  - "Allowlist de herramientas con versiones y reglas PINNEADAS por digest — semgrep --config auto, npx de paquetes sin versión y reglas remotas mutables NO son reproducibles: se fija versión de herramienta y versión/commit del ruleset, y ambos se registran en manifest.json."
 
 checks:
 
@@ -17,14 +43,14 @@ checks:
     tool: "ripgrep (rg) o grep -rn"
     contract: "Detecta PRESENCIA de strings. Solo válido como señal orientativa o para detectar anti-patrones puntuales (ej. expect(true).toBe(true)). Jamás confirma una práctica positiva por sí solo."
     output: "Lista de coincidencias archivo:línea"
-    scoring: "No puntúa por sí mismo por encima de 3.0 (techo T1)."
+    scoring: "Solo con evidencia T1, el rating máximo de la sub-dimensión es P (2.0)."
 
   file_exists:
     tier: T1
     tool: "find / glob"
     contract: "Detecta existencia de archivos de configuración o artefactos. La existencia de un archivo NO prueba su uso (ej. .eslintrc presente pero lint no corre en CI)."
     output: "Lista de rutas encontradas"
-    scoring: "Techo T1. Para superar 3.0, combinar con el check T2 que pruebe uso real (ej. ci_config_analysis)."
+    scoring: "T1: solo, el rating máximo es P (2.0). Para superar P, combinar con el check T2 que pruebe uso real (ej. ci_config_analysis)."
 
   directory_structure_analysis:
     tier: T1
@@ -36,8 +62,8 @@ checks:
   secret_scan:
     tier: T2
     tool: "gitleaks (obligatorio) + trufflehog (verificación de credencial viva, opcional)"
-    command: "gitleaks git --report-format json --report-path evidence/gitleaks.json .   # escanea TODO el historial, no solo HEAD"
-    parsing: "JSON: cada finding con RuleID, File, Commit, Secret (redactado en informe)"
+    command: "gitleaks git --redact --report-format json --report-path evidence/gitleaks.json .   # escanea TODO el historial, no solo HEAD; --redact evita que el secreto real llegue a evidence/"
+    parsing: "JSON: cada finding con RuleID, File, Commit, Secret (SIEMPRE redactado — ver evidence_custody)"
     score_mapping:
       - "1+ secreto VIVO verificado (trufflehog) => 1.0 + hallazgo Crítico"
       - "1+ secreto en historial (no verificado vivo) => 2.0 max + hallazgo Alto"
@@ -47,7 +73,7 @@ checks:
   sast_scan:
     tier: T2
     tool: "semgrep"
-    command: "semgrep scan --config auto --json -o evidence/semgrep.json src/"
+    command: "semgrep scan --config <ruleset pinneado por versión/commit> --json -o evidence/semgrep.json src/   # --config auto NO es reproducible: fijar ruleset y registrar su versión en manifest.json"
     parsing: "JSON results[]: check_id, path, start.line, severity"
     score_mapping:
       - "1+ finding ERROR en categoría injection/crypto => <= 2.0"
@@ -64,7 +90,7 @@ checks:
       - "CVE CRITICAL con fix disponible sin aplicar => <= 2.0 + hallazgo Alto"
       - "Solo HIGH/MEDIUM gestionados => 3.5"
       - "Limpio + SCA en CI con bloqueo + SBOM => elegible 5.0"
-    license_rules: "GPL/AGPL en dependencia distribuida de un SaaS propietario => hallazgo Alto (riesgo legal). Reportar inventario de licencias en evidence/."
+    license_rules: "Copyleft fuerte NO es hallazgo automático: se contrasta contra la política de licencias del cliente y el modo de uso. AGPL en dependencia de un servicio de red => prioridad máxima de revisión legal (la obligación aplica aun sin distribuir binarios); GPL => depende de si hay distribución y de cómo se enlaza. El hallazgo se emite como 'requiere revisión legal contextual' con severidad según exposición — nunca como veredicto legal del auditor técnico. Reportar inventario completo de licencias en evidence/."
 
   duplication_scan:
     tier: T2
@@ -142,7 +168,7 @@ checks:
     tool: "gh CLI / API del CI"
     command: "gh run list --limit 200 --json status,conclusion,createdAt,updatedAt,headBranch > evidence/ci_runs.json ; gh api repos/{owner}/{repo}/deployments"
     parsing: "Frecuencia de deploy, lead time (commit->deploy), tasa de runs fallidos en rama principal, tiempo de recuperación"
-    score_mapping: "Mapear contra benchmarks DORA 2024 (ver D6.2). Sin acceso al historial => N/D (not_available_policy)."
+    score_mapping: "Mapear contra benchmarks DORA 2024 (ver D6.2). Sin acceso al historial => unknown (unknown_policy) — no se estima."
 
   ci_config_analysis:
     tier: T2
@@ -157,7 +183,7 @@ checks:
   mutation_testing:
     tier: T2
     tool: "Stryker (JS/TS), PITest (JVM), mutmut (Python)"
-    command: "npx stryker run --reporters json  # solo sobre módulos de negocio, acotado por tiempo"
+    command: "npx stryker@<versión pinneada> run --reporters json  # solo sobre módulos de negocio, acotado por tiempo; versión registrada en manifest.json"
     parsing: "Mutation score (% mutantes muertos)"
     score_mapping:
       - "Mutation score < 30% con cobertura declarada > 70% => pruebas fantasma probables => <= 2.0"
@@ -173,7 +199,7 @@ checks:
       - "1+ FAIL crítico CIS (S3 público, 0.0.0.0/0 en admin, wildcard IAM) => <= 2.0 + hallazgo Crítico/Alto"
       - "FAILs medios gestionados => 3.5"
       - "Limpio + scan periódico automatizado => elegible 5.0"
-    notes: "Sin acceso a la cuenta cloud NI a IaC => N/D en sub-dimensión crítica => score 1.0 (not_available_policy)."
+    notes: "Sin acceso a la cuenta cloud NI a IaC => unknown en sub-dimensión crítica: confidence low, PHS provisional y dictamen de alta confianza bloqueado (unknown_policy) — no se afirma inseguridad sin evidencia."
 
   performance_test_analysis:
     tier: T2
@@ -204,13 +230,34 @@ checks:
     command: "git log --grep='Co-Authored-By:.*[Cc]laude\\|Co-Authored-By:.*[Cc]opilot\\|Generated with' --oneline | wc -l ; revisar AGENTS.md / CLAUDE.md / etiquetas de PR"
     parsing: "% de commits con trailer de atribución IA; existencia de política de atribución"
     score_mapping:
-      - "Sin ningún mecanismo de atribución => DAI opera sobre TODO el código reciente con confidence: low"
+      - "Sin ningún mecanismo de atribución => DAI.0 puntúa bajo (ese ES el hallazgo); DAI.2-DAI.4 quedan unknown con pesos redistribuidos — NUNCA se asume que el código reciente es de IA"
       - "Trailers parciales => 3.5"
       - "Política escrita + trailers/etiquetas consistentes => elegible 5.0"
-    notes: "Este check define el UNIVERSO de código que evalúa el módulo DAI (regla anti doble conteo con D2)."
+    notes: "Este check define el UNIVERSO de código que evalúan DAI.2-DAI.4 (regla anti doble conteo con D2). DAI.1 (dependencias) y DAI.5 (gobernanza de proceso) se evalúan aunque no haya atribución: operan sobre el repo y el proceso, no sobre código atribuido."
 
   llm_feature_security_review:
     tier: T3
-    contract: "Solo si la plataforma integra LLMs en runtime. Revisar contra OWASP LLM Top 10 (2025): LLM01 Prompt Injection (¿input de usuario concatenado a prompts de sistema?), LLM02 Insecure Output Handling (¿output del LLM ejecutado/renderizado sin sanitizar?), LLM06 exposición de datos sensibles en prompts."
+    contract: "Solo si la plataforma integra LLMs en runtime. Revisar contra OWASP LLM Top 10 (edición 2025, numeración oficial): LLM01 Prompt Injection (¿input de usuario concatenado a prompts de sistema?), LLM02 Sensitive Information Disclosure (¿PII/secretos expuestos en prompts o respuestas?), LLM05 Improper Output Handling (¿output del LLM ejecutado/renderizado/persistido sin sanitizar?), LLM06 Excessive Agency (¿las tools/acciones que el LLM puede disparar tienen autorización propia y alcance mínimo?)."
     output: "Veredicto por criterio con citas archivo:línea"
-    notes: "Si la plataforma NO usa LLMs en runtime, DAI.6 se marca N/A y su peso se redistribuye proporcionalmente (no cuenta como N/D)."
+    notes: "Si la plataforma NO usa LLMs en runtime, DAI.6 se marca N/A y su peso se redistribuye proporcionalmente (no cuenta como unknown)."
+
+  git_branch_protection_api:
+    tier: T2
+    tool: "gh CLI / API de GitHub-GitLab"
+    command: "gh api repos/{owner}/{repo}/branches/<main>/protection > evidence/branch_protection.json"
+    parsing: "required_status_checks, required_pull_request_reviews (required_approving_review_count), enforce_admins, allow_force_pushes, allow_deletions"
+    score_mapping:
+      - "Sin protección de rama principal, o force push permitido => <= 2.0 (activa gating en D9.1)"
+      - "PRs requeridos sin required reviews ni enforce_admins => 3.5"
+      - "Checks + review requerida + enforce_admins + sin force push => elegible 5.0"
+    notes: "Es la evidencia dura de D9.1. Sin permisos para leer la protección => unknown, no fail."
+
+  git_commit_log_analysis:
+    tier: T2
+    tool: "git"
+    command: "git log -n 200 --no-merges --pretty=format:'%h|%s' > evidence/commit_log.txt"
+    parsing: "% de commits que cumplen Conventional Commits (^(feat|fix|docs|style|refactor|test|chore)(\\(.+\\))?:) y % con referencia a ticket (patrón del tracker del cliente)"
+    score_mapping:
+      - "< 30% de commits trazables => <= 2.0"
+      - "30-80% trazables => 3.5"
+      - "> 80% trazables + releases etiquetados enlazando deploys => elegible 5.0"

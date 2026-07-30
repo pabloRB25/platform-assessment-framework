@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://alyp.studio/paf/schemas/pipeline.schema.json",
+  "title": "PAF Master Pipeline",
+  "type": "object",
+  "required": ["pipeline_id", "version", "description", "steps"],
+  "properties": {
+    "pipeline_id": { "type": "string" },
+    "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "description": { "type": "string" },
+    "steps": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object",
+        "required": ["step", "name", "action"],
+        "properties": {
+          "step": { "type": "integer", "minimum": 1 },
+          "name": { "type": "string" },
+          "action": { "type": "string" },
+          "optional": { "type": "boolean" },
+          "blocking": { "type": "boolean" },
+          "parallel": { "type": "boolean" },
+          "inputs": { "type": "object" },
+          "outputs": { "type": "array", "items": { "type": "string" } },
+          "outputs_dir": { "type": "string" },
+          "rules": { "type": "array", "items": { "type": "string" } },
+          "execution_notes": { "type": "array", "items": { "type": "string" } },
+          "checks_catalog_ref": { "type": "string" },
+          "config_ref": { "type": "string" },
+          "template_ref": { "type": "string" },
+          "output_file": { "type": "string" },
+          "dimension_files": { "type": "array", "items": { "type": "string" } }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

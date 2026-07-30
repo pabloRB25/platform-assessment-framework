@@ -1,7 +1,7 @@
 # Pipeline Maestro de Orquestación para Agentes de Evaluación de Software
 pipeline_id: "master_platform_assessment_pipeline"
-version: "3.0.0"
-description: "Workflow automatizado para la ejecución completa del assessment de plataforma (10 Dimensiones, Gating Rules y Tiers de Evidencia)"
+version: "3.1.0"
+description: "Workflow para la ejecución completa del assessment (10 Dimensiones, Gating Rules, Tiers de Evidencia, custodia de evidencia y validación humana)"
 
 steps:
   - step: 1
@@ -10,11 +10,25 @@ steps:
     outputs:
       - "inventory_repos"
       - "inventory_tech_stack"
+      - "access_inventory"     # QUÉ evidencia es accesible (repo, historial git, CI, cloud) — insumo de unknown_policy
 
   - step: 2
-    name: "Ejecución de las 10 Dimensiones Técnicas"
+    name: "Carga de Assessment Previo (Delta / Milestones)"
+    action: "load_previous_assessment"
+    optional: true
+    inputs:
+      previous_report_dir: "reports/"
+    outputs:
+      - "baseline_scores"
+    rules:
+      - "El delta solo es comparable si cumple delta_comparability_rules (mismo perfil, alcance, framework_version, catálogo y herramientas pinneadas); si no, se reporta como 'delta indicativo, no comparable'."
+      - "Sin assessment previo => se omite y el informe se marca como 'Baseline inicial'."
+
+  - step: 3
+    name: "Recolección Paralela de las 10 Dimensiones"
     action: "execute_dimensions"
-    parallel: false
+    parallel: true             # La RECOLECCIÓN es paralelizable; los cruces se resuelven en el paso 4
+    checks_catalog_ref: "config/checks_catalog.yaml"
     dimension_files:
       - "dimensions/D1_Arquitectura_Integracion.yaml"
       - "dimensions/D2_Codigo_Mantenibilidad.yaml"
@@ -26,13 +40,49 @@ steps:
       - "dimensions/D8_Gobernanza_Riesgos.yaml"
       - "dimensions/D9_SDLC_GestionCambio.yaml"
       - "dimensions/DAI_Codigo_Agentico_IA.yaml"
+    execution_notes:
+      - "Dentro de DAI: DAI.0 (atribución) se resuelve ANTES que DAI.1-DAI.6 porque define el universo de DAI.2-DAI.4."
+      - "Checks compartidos entre dimensiones (jscpd, semgrep, git_history_analysis, ci_config_analysis) se ejecutan UNA vez y sus resultados se comparten."
 
-  - step: 3
+  - step: 4
+    name: "Reconciliación y Deduplicación de Hallazgos"
+    action: "reconcile_findings"
+    rules:
+      - "Las dimensiones no son plenamente independientes: cruces conocidos D2/DAI (calidad de código), D5/DAI (tests), D9/DAI (review), D4/D7 (PII en logs, backups/DRP), D1/D8 (docs de arquitectura)."
+      - "Cada defecto se asigna a UNA dimensión primaria según double_counting_rules; las demás lo citan como contexto sin re-penalizar."
+      - "Hallazgos duplicados entre dimensiones se fusionan antes del scoring."
+
+  - step: 5
+    name: "Archivo de Evidencia (con custodia)"
+    action: "archive_evidence"
+    outputs_dir: "evidence/"
+    rules:
+      - "Todo output de herramienta se guarda en evidence/ con hash SHA-256, cumpliendo evidence_custody (checks_catalog.yaml): secretos SIEMPRE redactados en origen, evidence/ nunca commiteado, cifrado al salir de la máquina del auditor, retención y destrucción registradas."
+      - "Se genera evidence/manifest.json (machine-readable): por check => ruta, hash, herramienta + versión/digest, comando/argv, commit objetivo, timestamps, exit code. Sin valores sensibles. El SHA-256 del manifest se publica en el informe."
+      - "Secret-scan final SOBRE evidence/: si detecta valores vivos, se regenera con redacción antes de continuar."
+      - "Sin evidencia archivada, un score T2 se degrada a T1 (rating máximo P): el score debe ser re-verificable."
+
+  - step: 6
     name: "Cálculo de Scoring con Gating Rules NPLF"
     action: "calculate_scores_with_gating"
     config_ref: "config/weights_and_thresholds.yaml"
+    rules:
+      - "Sub-dimensión: NPLF sobre criterios pass/fail (los unknown salen del denominador y degradan confianza)."
+      - "Evidencia solo T1 => rating máximo P (2.0)."
+      - "Criterio critical en fail => gate directo (equivale a sub-dimensión <= 2.0)."
+      - "Gating: sub-dimensión crítica <= 2.0 o criterio-gate en fail => PHS reportable acotado a 2.9."
+      - "unknown en sub-dimensión crítica => confidence low, PHS PROVISIONAL, estado de salud no puede declararse >= 'Bueno/Estable'."
+      - "Calcular hri_count (Críticos + Altos) — se reporta SIEMPRE junto al PHS — y gap vs target_phs del perfil."
 
-  - step: 4
+  - step: 7
+    name: "Validación Humana del Borrador"
+    action: "human_review_gate"
+    blocking: true
+    rules:
+      - "Un auditor humano revisa: hallazgos Críticos/Altos, scores acotados por gating, criterios unknown y la sección de limitaciones."
+      - "El informe NO se entrega al cliente sin firma humana — el mismo Human-in-the-Loop que el framework exige en DAI.5."
+
+  - step: 8
     name: "Generación de Informe Final y Firma de Auditor"
     action: "render_report"
     template_ref: "templates/template_final_report.md"

@@ -1,13 +1,51 @@
 # Configuración de Ponderaciones, Umbrales y Gating Rules del Assessment
-framework_version: "3.0.0"
+framework_version: "3.1.0"
 author: "Studio Architecture & Quality Practice"
 
+# ============================================================
+# 1. ESCALA DE MADUREZ (anclas narrativas 1.0-5.0)
+# ============================================================
+scoring_scale:
+  min: 1.0
+  max: 5.0
+  levels:
+    5.0: "Optimizado (Nivel 5) - Estado del arte, mejora continua automatizada"
+    4.0: "Gestionado (Nivel 4) - Estable, documentado, medido y automatizado"
+    3.0: "En Desarrollo (Nivel 3) - Definido y funcional con brechas parciales"
+    2.0: "Básico (Nivel 2) - Informal, ad-hoc, dependiente de individuos"
+    1.0: "Crítico (Nivel 1) - Inexistente o gravemente deficiente"
+
+# ------------------------------------------------------------
+# 1.1 Método NPLF (ISO/IEC 33020) — dominio CERRADO de scores
+# ------------------------------------------------------------
+nplf_method:
+  ratings:
+    F: { name: "Fully achieved",     range_pct: [86, 100], score: 5.0 }
+    L: { name: "Largely achieved",   range_pct: [51, 85],  score: 3.5 }
+    P: { name: "Partially achieved", range_pct: [16, 50],  score: 2.0 }
+    N: { name: "Not achieved",       range_pct: [0, 15],   score: 1.0 }
+  criterion_states: [pass, fail, unknown]   # tres estados — desconocido NUNCA se confunde con incumplimiento
+  rules:
+    - "Cada criterio binario se evalúa pass/fail/unknown con evidencia citada (archivo:línea, commit, output de herramienta)."
+    - "El % de cumplimiento se calcula solo sobre criterios pass+fail; los unknown se excluyen del denominador y degradan la confianza (ver unknown_policy)."
+    - "score_subdimension = score del rating NPLF. Valores válidos: 1.0, 2.0, 3.5, 5.0 — prohibido reportar decimales no derivados del método."
+    - "La rúbrica narrativa 1-5 es sanity-check cualitativo, nunca la fuente del score."
+  evidence_resolution:
+    t1_only_cap: "P"   # RESOLUCIÓN T1/NPLF: sub-dimensión soportada SOLO por evidencia T1 => rating máximo P (2.0). El dominio NPLF se mantiene cerrado; no existe el 'techo 3.0'.
+  critical_criteria:
+    description: "Un criterio puede declararse con critical: true y failure_effect: gate. Su FAIL activa directamente las gating rules (equivale a sub-dimensión <= 2.0), sin esperar al promedio: secretos vivos, BOLA demostrable, backups irrecuperables, wildcard IAM en producción, dependencia alucinada, push directo a main sin protección."
+    schema: "Los criterios aceptan forma string (peso uniforme) u objeto: {id, text, critical, failure_effect: gate, evidence_required: T2|T3}."
+
+# ============================================================
+# 2. PRINCIPIOS DE SCORING Y TIERS DE EVIDENCIA
+# ============================================================
 scoring_principles:
-  gating_rule: "Cualquier sub-dimensión crítica con score <= 2.0 acota el PHS reportable a un máximo de 2.9 (En Riesgo)."
+  gating_rule: "Cualquier sub-dimensión crítica con score <= 2.0 — o cualquier criterio critical en estado fail — acota el PHS reportable a un máximo de 2.9 (En Riesgo)."
   evidence_tiers:
-    T1: "Señal superficial (grep, file_exists) - Techo máximo 3.0"
-    T2: "Métrica de herramienta reproducible (Semgrep, Trivy, Lizard, Prowler, Stryker) - Techo 5.0"
-    T3: "Juicio experto con citas archivo:línea - Techo 5.0"
+    T1: "Señal superficial (grep, file_exists, estructura) - Indica, nunca confirma. Sola => rating máximo P (2.0)."
+    T2: "Métrica de herramienta reproducible (gitleaks, Semgrep, Trivy, jscpd, Lizard, Prowler, Stryker, endoflife.date) - Elegible F (5.0)."
+    T3: "Juicio experto con citas archivo:línea obligatorias - Elegible F (5.0)."
+  hri_reporting: "El informe muestra SIEMPRE: PHS reportable + 'HRIs abiertos: N' (Críticos + Altos, nunca promediados) + la sub-dimensión o criterio que activa el techo (si aplica)."
 
 critical_sub_dimensions:
   - "D3.1" # Autenticación y Autorización
@@ -18,6 +56,26 @@ critical_sub_dimensions:
   - "D9.1" # Branching y Protección de Ramas
   - "DAI.1"# Anti-Alucinación y Supply Chain (Slopsquatting)
 
+# ============================================================
+# 3. ESTADO UNKNOWN Y CONFIANZA
+# "No pude comprobarlo" != "no existe". Un unknown crítico degrada
+# la confianza y bloquea el dictamen de alta confianza; NO afirma
+# que la plataforma sea insegura.
+# ============================================================
+unknown_policy:
+  general: "Check no ejecutable (sin acceso a infra/, historial de pipeline, consola cloud, historial git) => los criterios afectados quedan en estado unknown, se excluyen del denominador NPLF y se listan en 'Limitaciones y Alcance'."
+  critical_subdimension: "unknown en sub-dimensión crítica => confidence de la dimensión = low, el PHS se marca PROVISIONAL y el informe NO puede declarar un estado de salud >= 'Bueno / Estable'. No se asigna 1.0 automáticamente."
+  evidence_is_the_control: "Excepción: cuando la capacidad de producir la evidencia ES el control evaluado (p.ej. auditoría/logging habilitado, historial de pipeline existente), la ausencia de evidencia sí es fail."
+  non_critical_subdimension: "Sub-dimensión completa en unknown y no crítica => se excluye renormalizando pesos y se degrada la confianza de la dimensión."
+
+confidence_levels:
+  high: "Todos los checks T2/T3 planificados ejecutados con evidencia archivada; cero unknown en críticas."
+  medium: "Checks parciales; unknown en sub-dimensión no crítica, o evidencia solo T1 en alguna sub-dimensión."
+  low: "unknown en sub-dimensión crítica, o dimensión soportada mayoritariamente por señales T1. Bloquea el dictamen de alta confianza."
+
+# ============================================================
+# 4. PERFILES Y PONDERACIONES (10 dimensiones: D1-D9 + DAI)
+# ============================================================
 profiles:
   general_saas:
     name: "SaaS / Plataforma Core General"
@@ -55,7 +113,7 @@ profiles:
     weights:
       D1: 0.08
       D2: 0.10
-      D3: 0.15
+      D3: 0.15 # La seguridad básica no se negocia ni en MVP
       D4: 0.10
       D5: 0.12
       D6: 0.12
@@ -79,6 +137,9 @@ profiles:
       D9: 0.07
       DAI: 0.20 # Máxima ponderación en Código Agéntico e IA
 
+# ============================================================
+# 5. UMBRALES Y NIVEL OBJETIVO
+# ============================================================
 thresholds:
   enterprise_ready: 4.5
   stable_good: 3.8
@@ -86,8 +147,52 @@ thresholds:
   at_risk: 2.0
   critical: 1.0
 
+target_gap_interpretation:
+  on_target: "PHS_reportable >= target_phs del perfil => la plataforma cumple su nivel objetivo."
+  minor_gap: "gap <= 0.5 => brechas abordables con roadmap corto."
+  major_gap: "gap > 0.5 => plan de remediación estructural requerido."
+
+# ============================================================
+# 6. TAXONOMÍA DE SEVERIDAD (HRI/MRI)
+# ============================================================
 severity_taxonomy:
-  critical: "HRI - Resolver en <= 7 días (Bloqueante)"
-  high: "HRI - Resolver en <= 30 días"
-  medium: "Resolver en el trimestre"
-  low: "Incorporar al backlog"
+  critical:
+    label: "Crítico"
+    hri: true
+    sla: "Resolver en <= 7 días (Bloqueante)"
+    definition: "Explotable hoy o exposición activa: secretos vivos, SQLi/BOLA demostrable, datos personales expuestos, acceso admin sin control."
+  high:
+    label: "Alto"
+    hri: true
+    sla: "Resolver en <= 30 días"
+    definition: "Debilidad seria sin explotación inmediata demostrada: CVE crítico con fix sin aplicar, backups sin prueba de restauración, pipeline sin gates, bus factor 1 en componente core."
+  medium:
+    label: "Medio"
+    hri: false
+    sla: "Resolver en el trimestre"
+    definition: "Degrada mantenibilidad u operación: duplicación alta, complejidad excesiva, documentación desactualizada, observabilidad parcial."
+  low:
+    label: "Bajo"
+    hri: false
+    sla: "Incorporar al backlog"
+    definition: "Mejora oportunista sin riesgo operativo directo."
+
+# ============================================================
+# 7. ANTI DOBLE CONTEO D2/DAI
+# ============================================================
+double_counting_rules:
+  - "D2 (manejo de errores, duplicación, complejidad) califica el CODEBASE COMPLETO."
+  - "DAI.2-DAI.4 califican SOLO código con atribución IA verificable (DAI.0). El mismo defecto nunca baja el PHS dos veces."
+  - "Sin mecanismo de atribución: DAI.0 puntúa bajo (ese es el hallazgo), DAI.1 y DAI.5 se evalúan igual (operan sobre dependencias y proceso, no sobre código atribuido), y DAI.2-DAI.4 quedan en unknown con redistribución de pesos — NUNCA se asume que todo el código reciente es de IA."
+
+# ============================================================
+# 8. COMPARABILIDAD DE DELTA ASSESSMENTS
+# Un delta solo es válido si compara lo comparable; si algo de esto
+# cambió, el informe lo declara y el delta se reporta como indicativo.
+# ============================================================
+delta_comparability_rules:
+  - "Mismo perfil y mismos pesos."
+  - "Mismo alcance (repos, ramas, ambientes)."
+  - "Misma framework_version y misma versión del catálogo de checks (o changelog de diferencias adjunto)."
+  - "Mismas herramientas y versiones pinneadas (registradas en evidence/manifest.json)."
+  - "Si no se cumplen, el cambio de PHS puede deberse al framework y no a la plataforma — se reporta como 'delta indicativo, no comparable'."

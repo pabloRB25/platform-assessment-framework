@@ -65,6 +65,8 @@ sub_dimensions:
       - check_ref: "grep_search"
         query: "opentelemetry|jaeger|zipkin"
         paths: ["src/"]
+      - check_ref: "code_judgment_review"
+        note: "Los dos checks anteriores son T1 (solo T1 => rating máximo P): verificar en la configuración real que las alertas existen, disparan y llegan a un canal con dueño; leer definiciones de SLO si las hay"
     nplf_criteria:
       - "Alertas automáticas configuradas para condiciones de fallo (no dependencia de reportes de usuarios)"
       - "Las alertas llegan a un canal accionable con dueño (on-call, Slack operativo)"

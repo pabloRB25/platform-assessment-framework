@@ -11,12 +11,13 @@ El framework de evaluación se organiza en los siguientes componentes dentro de 
 assessment_framework/
 ├── README.md                           # Guía general de ejecución
 ├── config/
-│   ├── weights_and_thresholds.yaml     # Perfiles, gating rules, NPLF, tiers de evidencia, N/D, severidad
-│   └── checks_catalog.yaml             # Contrato de ejecución de cada check (herramienta, comando, parsing, score)
+│   ├── weights_and_thresholds.yaml     # Perfiles, gating rules, NPLF (pass/fail/unknown), tiers, severidad
+│   └── checks_catalog.yaml             # Contrato de cada check + custodia de evidencia + modelo de ejecución seguro
+├── schemas/                            # JSON Schemas: dimension, checks_catalog, config, pipeline
 ├── templates/
-│   ├── assessment_master_pipeline.yaml # Pipeline maestro (paralelo, evidencia, validación humana, delta)
+│   ├── assessment_master_pipeline.yaml # Pipeline maestro (paralelo + reconciliación, evidencia, gate humano, delta)
 │   └── template_final_report.md        # Plantilla de informe final de salida
-├── evidence/                           # (por assessment) outputs crudos de herramientas, con hash — re-verificables
+├── evidence/                           # (por assessment) outputs de herramientas con hash — NUNCA se commitea (.gitignore)
 ├── reports/                            # (por assessment) informes finales; el previo sirve de baseline para el delta
 └── dimensions/
     ├── D1_Arquitectura_Integracion.md  | .yaml # Guía técnica y YAML D1
@@ -47,7 +48,20 @@ assessment_framework/
 
 ### 3. Principios No Negociables
 
-* **Lo crítico no se promedia:** el PHS es narrativa ejecutiva; los HRIs se cuentan y acotan (ISO 33020 / TMMi / AWS WA).
-* **Presencia de strings ≠ verdad:** los greps son señal T1 con techo 3.0; los scores altos exigen herramienta (T2) o juicio con citas (T3).
-* **Evidencia o no pasó:** todo score debe ser re-verificable desde `evidence/`.
-* **La ausencia de evidencia en un control crítico ES el hallazgo**, no un vacío neutro.
+* **Lo crítico no se promedia:** el PHS es narrativa ejecutiva; los HRIs se cuentan y acotan (ISO 33020 / TMMi / AWS WA). Los criterios-gate (secretos vivos, BOLA, backups irrecuperables, dependencia alucinada) activan el techo directamente.
+* **Presencia de strings ≠ verdad:** los greps son señal T1 — solos, rating máximo **P (2.0)**; los scores altos exigen herramienta (T2) o juicio con citas (T3).
+* **Evidencia o no pasó:** todo score debe ser re-verificable desde `evidence/` (manifest.json con hashes) — y la evidencia se custodia: secretos redactados en origen, sin commit, cifrada y con retención definida.
+* **Desconocido ≠ incumplimiento:** un control no comprobable queda `unknown` — degrada la confianza y bloquea el dictamen de alta confianza, sin afirmar que la plataforma es insegura. Solo es `fail` cuando producir la evidencia ES el control.
+
+### 4. Validación del Propio Framework
+
+```bash
+python3 scripts/validate_framework.py
+```
+
+Valida los YAML contra `schemas/` y cruza consistencia (pesos, check_refs, criticidad, criterios-gate, sub-dimensiones solo-T1). Corre en CI en cada push/PR (`.github/workflows/validate.yml`).
+
+### 5. Roadmap de Ejecutabilidad
+
+* **v3.1 (actual):** especificación validable — schemas + validador + CI; scoring determinista especificado (NPLF cerrado, gates, unknown).
+* **v4 (siguiente):** runner sandboxed (contenedores efímeros, argv, red por allowlist, herramientas pinneadas por digest — requisitos ya normados en `checks_catalog.yaml §execution_model`), motor de scoring ejecutable, CLI (`paf validate | plan | run | score | report`), adaptadores por stack y fixtures con resultados esperados.

@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://alyp.studio/paf/schemas/dimension.schema.json",
+  "title": "PAF Dimension",
+  "type": "object",
+  "required": ["dimension_id", "name", "description", "standards_reference", "sub_dimensions"],
+  "properties": {
+    "dimension_id": { "type": "string", "pattern": "^(D[1-9]|DAI)$" },
+    "name": { "type": "string", "minLength": 3 },
+    "description": { "type": "string", "minLength": 10 },
+    "scope_note": { "type": "string" },
+    "standards_reference": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+    "sub_dimensions": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/subDimension" } }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "subDimension": {
+      "type": "object",
+      "required": ["id", "name", "weight", "agent_checks", "nplf_criteria", "rubric"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^(D[1-9]|DAI)\\.[0-9]$" },
+        "name": { "type": "string", "minLength": 3 },
+        "weight": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "critical": { "type": "boolean" },
+        "conditional": { "type": "string" },
+        "scope": { "type": "string" },
+        "control_refs": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "agent_checks": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/agentCheck" } },
+        "nplf_criteria": { "type": "array", "minItems": 3, "items": { "$ref": "#/$defs/criterion" } },
+        "rubric": {
+          "type": "object",
+          "minProperties": 3,
+          "propertyNames": { "pattern": "^[1-5](\\.[05])?$" },
+          "additionalProperties": { "type": "string", "minLength": 10 }
+        }
+      },
+      "additionalProperties": false
+    },
+    "agentCheck": {
+      "type": "object",
+      "required": ["check_ref"],
+      "properties": {
+        "check_ref": { "type": "string", "minLength": 2 },
+        "note": { "type": "string" },
+        "query": { "type": "string" },
+        "pattern": { "type": "string" },
+        "paths": { "type": "array", "items": { "type": "string" } },
+        "patterns": { "type": "array", "items": { "type": "string" } },
+        "files": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "criterion": {
+      "oneOf": [
+        { "type": "string", "minLength": 15 },
+        {
+          "type": "object",
+          "required": ["id", "text"],
+          "properties": {
+            "id": { "type": "string", "pattern": "^(D[1-9]|DAI)\\.[0-9]\\.C[0-9]+$" },
+            "text": { "type": "string", "minLength": 15 },
+            "critical": { "type": "boolean" },
+            "failure_effect": { "enum": ["gate"] },
+            "evidence_required": { "enum": ["T1", "T2", "T3"] }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

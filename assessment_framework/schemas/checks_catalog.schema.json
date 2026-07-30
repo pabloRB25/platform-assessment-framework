@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://alyp.studio/paf/schemas/checks_catalog.schema.json",
+  "title": "PAF Checks Catalog",
+  "type": "object",
+  "required": ["catalog_version", "conventions", "evidence_custody", "execution_model", "checks"],
+  "properties": {
+    "catalog_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "conventions": {
+      "type": "object",
+      "required": ["evidence_dir", "unknown_handling", "citation_format"]
+    },
+    "evidence_custody": { "type": "array", "minItems": 4, "items": { "type": "string" } },
+    "execution_model": { "type": "array", "minItems": 4, "items": { "type": "string" } },
+    "checks": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "required": ["tier"],
+        "properties": {
+          "tier": { "enum": ["T1", "T2", "T3"] },
+          "tool": { "type": "string" },
+          "contract": { "type": "string" },
+          "command": { "type": "string" },
+          "parsing": { "type": "string" },
+          "output": { "type": "string" },
+          "scoring": { "type": "string" },
+          "score_mapping": {
+            "anyOf": [
+              { "type": "string" },
+              { "type": "array", "items": { "type": "string" } }
+            ]
+          },
+          "license_rules": { "type": "string" },
+          "inputs": { "type": "array", "items": { "type": "string" } },
+          "notes": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

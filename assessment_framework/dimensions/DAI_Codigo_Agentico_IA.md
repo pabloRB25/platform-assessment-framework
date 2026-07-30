@@ -7,15 +7,15 @@ Evaluación especializada de la calidad, seguridad, mantenibilidad y provenienci
 Garantizar que el uso de IA en la generación de código no degrade la arquitectura del sistema, no introduzca vulnerabilidades en la cadena de suministro ni aumente la deuda técnica oculta por falta de supervisión humana (*Human-in-the-Loop*).
 
 ## 3. Referencia de Estándares de la Industria
-* **OWASP Top 10 for LLM Applications (2025):** LLM01 Prompt Injection, LLM02 Insecure Output Handling, LLM06 Sensitive Information Disclosure — con checks concretos en DAI.6.
+* **OWASP Top 10 for LLM Applications (edición 2025 — numeración oficial):** LLM01 Prompt Injection, LLM02 Sensitive Information Disclosure, LLM05 Improper Output Handling, LLM06 Excessive Agency — con checks concretos en DAI.6.
 * **OWASP Top 10:2025 — A03 Software Supply Chain Failures:** conexión directa con DAI.1 (slopsquatting es un fallo de supply chain).
-* **SLSA v1.2:** Build Track (provenance) y **Source Track L1–L4** — el L4 (two-party review) es exactamente el control de DAI.5.
-* **NIST SP 800-218A:** Secure Software Development Practices for Generative AI.
+* **SLSA v1.2:** Build Track (provenance) y **Source Track L1–L4** — DAI.5 se **alinea con** el control de two-party review de L4; declarar el nivel exige verificar todos sus requisitos (controles continuos, source provenance, VSA), no un control aislado.
+* **NIST SP 800-218A:** Secure Software Development Practices for Generative AI. *Nota de alcance: está dirigido a productores/adquirentes de modelos y sistemas de IA; su mapeo a código escrito con asistentes es una **adaptación** documentada, no una equivalencia directa.*
 * **DORA AI Capabilities Model (2025):** capacidades organizacionales para desarrollo asistido por IA.
 * **Mutation Testing Standards (Stryker / PITest):** Validación de la efectividad real de pruebas unitarias.
 * **ISO/IEC 25010:2023:** Sub-características de Mantenibilidad y Analizabilidad en código sintético.
 
-> **Alcance y anti doble conteo:** DAI evalúa **solo código con atribución IA**, definida por DAI.0. D2 evalúa el codebase completo; el mismo defecto nunca baja el PHS dos veces. Si no existe mecanismo de atribución, DAI opera sobre el código de los últimos 12 meses con `confidence: low`.
+> **Alcance y anti doble conteo:** DAI.2–DAI.4 evalúan **solo código con atribución IA verificable** (DAI.0); DAI.1 y DAI.5 operan sobre el repo y el proceso completos. D2 evalúa el codebase completo; el mismo defecto nunca baja el PHS dos veces. **Sin mecanismo de atribución:** DAI.0 puntúa bajo (ese ES el hallazgo) y DAI.2–DAI.4 quedan en `unknown` con pesos redistribuidos — nunca se asume que el código reciente es de IA.
 
 ---
 
@@ -49,22 +49,22 @@ Garantizar que el uso de IA en la generación de código no degrade la arquitect
 ### DAI.5 Gobernanza y Supervisión Humana (Human-in-the-Loop)
 * **1.0 (Inicial):** Código generado por IA integrado directamente en ramas principales sin revisión de pares (Code Review) ni trazabilidad.
 * **3.0 (En Desarrollo):** PRs generados por IA revisados por al menos un desarrollador senior antes de fusionar.
-* **5.0 (Optimizado):** SLSA Source Track L4 (two-party review con enforcement de plataforma) + política de gobernanza agéntica, commits etiquetados con proveniencia y revisión estricta de *Human-in-the-Loop*.
+* **5.0 (Optimizado):** Two-party review con enforcement de plataforma (control alineado con SLSA Source L4) + política de gobernanza agéntica, commits etiquetados con proveniencia y revisión estricta de *Human-in-the-Loop*.
 
 ### DAI.6 Seguridad de Features LLM en Runtime (condicional)
 *Solo aplica si la plataforma integra LLMs en runtime (chatbots, generación, agentes). Si no aplica, se marca N/A y su peso se redistribuye — no penaliza.*
-* **1.0 (Inicial):** Input del usuario concatenado directamente al prompt de sistema (prompt injection trivial); output del LLM ejecutado/renderizado sin sanitizar.
+* **1.0 (Inicial):** Input del usuario concatenado directamente al prompt de sistema (prompt injection trivial); output del LLM ejecutado/renderizado sin sanitizar; tools con permisos heredados sin límite.
 * **3.0 (En Desarrollo):** Separación básica de prompts y sanitización de output en los flujos principales.
-* **5.0 (Optimizado):** Amenazas del OWASP LLM Top 10 modeladas, controles LLM01/LLM02/LLM06 testeados, tools/funciones del LLM con autorización propia y monitoreo de abuso en producción.
+* **5.0 (Optimizado):** Amenazas del OWASP LLM Top 10 (2025) modeladas y controles testeados — LLM01 Prompt Injection, LLM02 Sensitive Information Disclosure, LLM05 Improper Output Handling y LLM06 Excessive Agency (tools con autorización propia y alcance mínimo; acciones irreversibles con confirmación humana) — con monitoreo de abuso en producción.
 
 ---
 
 ## 5. Metodología de Ejecución para el Agente IA
 
-1. **Definir el universo (DAI.0):** `git log --grep='Co-Authored-By'` + política en `AGENTS.md`/`CLAUDE.md` + etiquetas de PR. Sin atribución posible ⇒ universo = últimos 12 meses, `confidence: low`.
+1. **Definir el universo (DAI.0):** `git log --grep='Co-Authored-By'` + política en `AGENTS.md`/`CLAUDE.md` + etiquetas de PR. Sin atribución posible ⇒ DAI.0 puntúa bajo, y DAI.2–DAI.4 se reportan `unknown` con pesos redistribuidos (DAI.1 y DAI.5 se evalúan igual: operan sobre dependencias y proceso).
 2. **Escaneo de Inseguridades Rápidas:** Buscar parches temporales generados por IA como `rejectUnauthorized: false`, `process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'`, `cors({origin: '*'})`.
 3. **Auditoría Anti-Slopsquatting (T2):** Ejecutar `package_registry_audit` según su contrato en `config/checks_catalog.yaml` — existencia en registro oficial, fecha de publicación, descargas, repo enlazado (osv-scanner + APIs de npm/PyPI).
 4. **Robustez asíncrona (T2):** Semgrep con reglas de async-sin-catch — el regex por línea no puede detectar bloques multilínea.
 5. **Análisis de Pruebas Tautológicas:** Buscar `expect(true)`, `assert True`, bloques `it()` / `def test_*` sin aserciones, y correr mutation testing como evidencia T2 (cruce D5.1).
 6. **Detección de Duplicación (T2):** `jscpd` acotado al universo IA-atribuido, comparado contra la línea base de D2.2.
-7. **Seguridad LLM (DAI.6, si aplica):** Revisar flujos LLM contra LLM01/LLM02/LLM06 con citas `archivo:línea`.
+7. **Seguridad LLM (DAI.6, si aplica):** Revisar flujos LLM contra LLM01/LLM02/LLM05/LLM06 (numeración 2025) con citas `archivo:línea`.

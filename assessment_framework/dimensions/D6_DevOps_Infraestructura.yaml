@@ -85,8 +85,12 @@ sub_dimensions:
         query: "AdministratorAccess|\"\\*\"|0\\.0\\.0\\.0/0"
         paths: ["infra/", "terraform/", ".github/"]
     nplf_criteria:
+      - id: "D6.4.C1"
+        text: "Sin recursos de datos expuestos públicamente (buckets, DBs) ni acceso administrativo abierto a internet, salvo diseño explícito documentado"
+        critical: true
+        failure_effect: "gate"
+        evidence_required: "T2"
       - "Cero políticas IAM con Action/Resource wildcard en roles de servicio (evidencia: scan)"
-      - "Sin recursos de datos expuestos públicamente (buckets, DBs) salvo diseño explícito"
       - "Security groups restringidos (nada de 0.0.0.0/0 en puertos de administración)"
       - "Auditoría cloud activa (CloudTrail o equivalente) con retención"
       - "Los findings críticos del benchmark CIS están resueltos o aceptados formalmente"
