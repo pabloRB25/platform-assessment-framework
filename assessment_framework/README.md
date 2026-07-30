@@ -10,6 +10,7 @@ El framework de evaluación se organiza en los siguientes componentes dentro de 
 ```
 assessment_framework/
 ├── README.md                           # Guía general de ejecución
+├── RUNBOOK.md                          # Procedimiento operativo: orquestador + subagentes por dimensión
 ├── config/
 │   ├── weights_and_thresholds.yaml     # Perfiles, gating rules, NPLF (pass/fail/unknown), tiers, severidad
 │   └── checks_catalog.yaml             # Contrato de cada check + custodia de evidencia + modelo de ejecución seguro
@@ -35,6 +36,8 @@ assessment_framework/
 ---
 
 ### 2. Flujo de Ejecución del Agente IA
+
+> **Para ejecutar un assessment real**, el procedimiento operativo completo (workspace, checks compartidos, plantilla de despacho de subagentes, contratos JSON de salida, scoring determinista, gate humano y presupuestos de tiempo) está en **[RUNBOOK.md](RUNBOOK.md)**. Lo que sigue es el resumen conceptual.
 
 1. **Lectura de Configuración:** El Agente lee `config/weights_and_thresholds.yaml` para determinar las ponderaciones y el **nivel objetivo** del proyecto según su perfil (**Fintech, SaaS, MVP o AI-Native / Agentic** — los 4 perfiles existen en el YAML) y `config/checks_catalog.yaml` para el contrato de cada check.
 2. **Inventario de Accesos:** Registra qué evidencia es accesible (repo, historial git, CI, consola cloud). Lo inaccesible se rige por la política N/D — nunca se estima.
