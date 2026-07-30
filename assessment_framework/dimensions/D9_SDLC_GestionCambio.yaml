@@ -1,93 +1,53 @@
 dimension_id: "D9"
 name: "SDLC y Gestión del Cambio"
-description: "Evaluación del proceso de desarrollo: branching, calidad del code review, trazabilidad commit->ticket->deploy y gestión de hotfixes. Recupera la dimensión de proceso del documento MNK; la escala se ancla a SLSA v1.2 Source Track (L1-L4)."
+description: "Evaluación del proceso de desarrollo, protección de ramas, two-party code review y trazabilidad (SLSA v1.2 Source Track)"
 standards_reference:
-  - "SLSA v1.2 — Source Track L1-L4 (L4 = two-party review obligatoria)"
-  - "Trunk-Based Development / GitFlow (según contexto de equipo)"
-  - "Conventional Commits v1.0.0"
-  - "ISO/IEC 12207 — Software life cycle processes"
-  - "ISO/IEC 27001:2022 A.8.32 (gestión del cambio)"
+  - "SLSA v1.2 Source Track (Levels 1 to 4)"
+  - "ISO/IEC/IEEE 12207:2017 Software Life Cycle Processes"
+  - "Conventional Commits v1.0.0 Specification"
 
 sub_dimensions:
   - id: "D9.1"
-    name: "Estrategia de Branching y Protección de Ramas"
-    weight: 0.25
-    critical: true
-    control_refs: ["SLSA v1.2 Source Track L2 (protección de rama)", "ISO 27001:2022 A.8.4, A.8.32"]
+    name: "Branching y Protección de Ramas"
+    weight: 0.30
+    is_critical: true
     agent_checks:
-      - check_ref: "ci_config_analysis"
-        note: "gh api branch protection: la evidencia dura de que la rama principal está protegida"
-      - check_ref: "git_history_analysis"
-        note: "Detectar pushes directos a la rama principal en el historial"
-    nplf_criteria:
-      - "La rama principal está protegida (sin push directo, ni siquiera admins sin bypass justificado)"
-      - "Existe una estrategia de branching definida y seguida (trunk-based o GitFlow consistente)"
-      - "Todo cambio llega a la rama principal vía PR"
-      - "Las ramas de larga vida (si existen) tienen razón documentada y sincronización regular"
+      - check_type: "git_branch_protection_api"
     rubric:
-      1.0: "Commits directos a la rama principal sin protección; sin estrategia de ramas"
-      2.0: "Estrategia declarada pero con pushes directos frecuentes en el historial"
-      3.0: "PRs como vía dominante; protección de rama parcial (sin required checks)"
-      4.0: "Branch protection completa (checks + review requerida); estrategia consistente"
-      5.0: "SLSA Source L3+: protección estricta sin bypass, historial íntegro y auditable"
+      1.0: "Commits directos permitidos a main sin restricciones ni branch protection"
+      3.0: "Branch protection activado requiriendo Pull Requests para fusionar a main"
+      5.0: "Protection estricta reforzada vía API, firmas GPG/SSH y prohibición de bypass/force push"
 
   - id: "D9.2"
-    name: "Calidad del Code Review"
-    weight: 0.30
-    control_refs: ["SLSA v1.2 Source Track L4 (two-party review)", "DORA (código revisado como capability)"]
+    name: "Calidad del Code Review (Two-Party Review)"
+    weight: 0.25
     agent_checks:
-      - check_ref: "git_pr_review_analysis"
-        note: "gh pr list con reviews: % con aprobación de tercero, tamaño mediano de PR, auto-merges"
-      - check_ref: "code_judgment_review"
-        note: "Muestrear 5+ PRs: ¿los reviews tienen comentarios sustantivos o son rubber-stamps de 30 segundos?"
-    nplf_criteria:
-      - "Los PRs requieren al menos una aprobación de un autor distinto (enforcement, no costumbre)"
-      - "El tamaño mediano de PR permite revisión real (< ~400 líneas netas)"
-      - "Los reviews muestran profundidad (comentarios sustantivos en la muestra, no aprobaciones instantáneas)"
-      - "Los cambios críticos (auth, pagos, migraciones) reciben revisión reforzada"
+      - check_type: "file_exists"
+        patterns: [".github/CODEOWNERS", ".gitlab/CODEOWNERS", ".github/PULL_REQUEST_TEMPLATE.md"]
+      - check_type: "git_pr_review_analysis"
     rubric:
-      1.0: "Merges sin ninguna revisión de terceros; PRs gigantes o inexistentes"
-      2.0: "Reviews formales pero vacíos (rubber-stamp); PRs de miles de líneas"
-      3.0: "Review habitual con comentarios; sin enforcement en la plataforma"
-      4.0: "Two-party review obligatoria por branch protection con reviews sustantivos"
-      5.0: "SLSA Source L4: two-party review obligatoria + revisión reforzada en rutas críticas"
+      1.0: "Autofusión de PRs sin revisión externa o reviews nominales sin análisis"
+      3.0: "Aprobación de al menos un par requerida antes de fusionar en CI"
+      5.0: "Two-party review estricto (SLSA Source L4), CODEOWNERS activos y checklists de PR obligatorios"
 
   - id: "D9.3"
-    name: "Trazabilidad Commit -> Ticket -> Deploy"
+    name: "Trazabilidad Commit → Ticket → Deploy"
     weight: 0.25
-    control_refs: ["ISO 27001:2022 A.8.32", "Conventional Commits"]
     agent_checks:
-      - check_ref: "git_history_analysis"
-        note: "% de commits/PRs con referencia a ticket o convención de mensaje; enlace release->commits"
-    nplf_criteria:
-      - "Los cambios se vinculan a su motivo (ticket, issue o PR descriptivo) de forma consistente"
-      - "Los mensajes de commit siguen una convención que permite generar changelogs"
-      - "Es posible responder '¿qué cambios entraron en el deploy X?' con evidencia (tags/releases)"
-      - "Los releases a producción quedan registrados (tags, GitHub Releases o registro de deploys)"
+      - check_type: "git_commit_log_analysis"
+        pattern: "^(feat|fix|docs|style|refactor|test|chore)(\\(.+\\))?: .+"
     rubric:
-      1.0: "Commits tipo 'fix', 'wip', 'cambios' sin vínculo a nada; imposible auditar qué se desplegó"
-      2.0: "Referencias a tickets esporádicas; sin registro de releases"
-      3.0: "Convención de commits seguida en su mayoría; releases etiquetados manualmente"
-      4.0: "Trazabilidad consistente commit->ticket + releases registrados"
-      5.0: "Trazabilidad completa commit->ticket->deploy con changelog automatizado por release"
+      1.0: "Commits con mensajes ambiguos e imposibilidad de trazar cambios a requerimientos"
+      3.0: "Mensajes con Conventional Commits e IDs de tickets presentes en la mayoría de commits"
+      5.0: "Trazabilidad automatizada bidireccional (Commit ↔ Ticket ↔ Release ↔ Deploy) en segundos"
 
   - id: "D9.4"
-    name: "Gestión de Hotfixes y Cambios de Emergencia"
+    name: "Hotfixes y Cambios de Emergencia"
     weight: 0.20
-    control_refs: ["ISO 27001:2022 A.8.32 (cambios de emergencia)", "Google SRE (postmortems)"]
     agent_checks:
-      - check_ref: "git_history_analysis"
-        note: "Identificar hotfixes en el historial (merges directos, ramas hotfix/*, reverts) y verificar si siguieron proceso"
-      - check_ref: "file_exists"
-        patterns: ["*postmortem*", "*incident*", "docs/incidents/*"]
-    nplf_criteria:
-      - "Existe un proceso definido para cambios de emergencia (quién aprueba, cómo se despliega)"
-      - "Los hotfixes pasan por el pipeline (aunque sea acelerado), no por deploy manual"
-      - "Los hotfixes se reconcilian con la rama principal (sin drift permanente)"
-      - "Los incidentes significativos generan postmortem con acciones"
+      - check_type: "file_exists"
+        patterns: ["docs/hotfix_process*", "docs/postmortem*"]
     rubric:
-      1.0: "Hotfixes por SSH directo a producción sin registro ni reconciliación"
-      2.0: "Hotfixes por vías informales; reconciliación con main esporádica"
-      3.0: "Proceso de hotfix conocido por el equipo; pipeline usado en la mayoría de emergencias"
-      4.0: "Proceso documentado y seguido; postmortems para incidentes mayores"
-      5.0: "Cambios de emergencia auditables por pipeline + cultura de postmortem sin culpa con seguimiento de acciones"
+      1.0: "Cambios aplicados directamente en servidores de producción sin registro en Git"
+      3.0: "Flujo abreviado de hotfix por rama dedicada y CI automatizado"
+      5.0: "Proceso de Hotfix auditable con aprobación express y Postmortem obligatorio en < 48h"
