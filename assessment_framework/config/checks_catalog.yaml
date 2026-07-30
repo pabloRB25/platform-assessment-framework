@@ -2,8 +2,11 @@
 # Todo check referenciado en dimensions/*.yaml DEBE estar definido aquí:
 # herramienta, comando, parsing del output y mapeo umbral -> score.
 # Los tiers (T1/T2/T3) y sus techos están en weights_and_thresholds.yaml
-# (T1 solo => rating máximo P = 2.0).
-catalog_version: "1.1.0"
+# (un pass sostenido solo por T1 = unconfirmed; ver evidence_resolution en config).
+# NOTA: los campos `command` son ILUSTRATIVOS para humanos (usan pipes/redirecciones
+# por legibilidad). Un runner automatizado DEBE construir argv sin shell según
+# execution_model; el argv real ejecutado queda registrado en el manifest.
+catalog_version: "1.2.0"
 
 conventions:
   evidence_dir: "evidence/"        # Todo output se archiva con hash SHA-256 (ver pipeline paso de archivo)
@@ -20,7 +23,8 @@ evidence_custody:
   - "Evidencia cifrada en reposo cuando sale de la máquina del auditor; acceso restringido al equipo del assessment."
   - "Política de retención: la evidencia se destruye al cierre del engagement salvo acuerdo contractual distinto; la destrucción se registra."
   - "Al cerrar el paso de archivo, se corre un secret-scan SOBRE evidence/ mismo — si detecta valores vivos, el archivo se regenera con redacción antes de continuar."
-  - "manifest.json no contiene valores sensibles: solo rutas, hashes, herramienta+versión (digest), comando/argv, commit objetivo, timestamps y exit codes. El manifest se firma (o como mínimo se publica su SHA-256 en el informe) para hacerlo verificable."
+  - "manifest.json no contiene valores sensibles: solo rutas, hashes, herramienta+versión (digest), argv, commit objetivo, timestamps y exit codes. Cada entrada tiene un EV-id (EV-0001...) — la moneda de referencia que usan los subagentes en evidence_refs. Schema: schemas/manifest.schema.json. El manifest se firma (o como mínimo se publica su SHA-256 en el informe)."
+  - "SELLADO TARDÍO: durante la recolección el manifest se registra incremental (sealed: false); el sello final (secret-scan sobre evidence/, hash total, sealed: true) ocurre DESPUÉS del fan-out y la reconciliación — nunca antes, para que la evidencia específica de dimensiones (mutation, performance, muestreos) no quede fuera. Tras el sello, evidence/ se congela read-only (chmod -R a-w) antes del scoring."
 
 # ------------------------------------------------------------
 # MODELO DE EJECUCIÓN SEGURO (requisitos normativos del runner)
@@ -33,7 +37,8 @@ execution_model:
   - "Red deshabilitada por defecto; solo los checks que la requieren (version_check, package_registry_audit) la habilitan hacia endpoints allowlisted."
   - "Timeouts y límites de CPU/memoria por check; captura de exit code, stdout y stderr en el manifest."
   - "Credenciales cloud read-only y de alcance mínimo; jamás credenciales de escritura."
-  - "Allowlist de herramientas con versiones y reglas PINNEADAS por digest — semgrep --config auto, npx de paquetes sin versión y reglas remotas mutables NO son reproducibles: se fija versión de herramienta y versión/commit del ruleset, y ambos se registran en manifest.json."
+  - "SEGREGACIÓN DE CREDENCIALES: los checks autenticados (gh api, prowler, APIs cloud) los ejecuta SOLO el orquestador; los subagentes de dimensión no reciben tokens de ninguna clase — consumen los outputs ya archivados en evidence/."
+  - "Allowlist de herramientas con versiones y reglas PINNEADAS por digest — semgrep --config auto, npx de paquetes sin versión y reglas remotas mutables NO son reproducibles: se fija versión de herramienta y versión/commit del ruleset, y ambos se registran en manifest.json. Preferir imágenes de contenedor con herramientas preinstaladas y pinneadas; si se usa npx, siempre npx --no-install sobre dependencias ya declaradas."
 
 checks:
 
@@ -43,14 +48,14 @@ checks:
     tool: "ripgrep (rg) o grep -rn"
     contract: "Detecta PRESENCIA de strings. Solo válido como señal orientativa o para detectar anti-patrones puntuales (ej. expect(true).toBe(true)). Jamás confirma una práctica positiva por sí solo."
     output: "Lista de coincidencias archivo:línea"
-    scoring: "Solo con evidencia T1, el rating máximo de la sub-dimensión es P (2.0)."
+    scoring: "T1: puede DEMOSTRAR un fail (la presencia del anti-patrón citado es la evidencia); un pass sostenido solo por este check queda unconfirmed (evidence_resolution)."
 
   file_exists:
     tier: T1
     tool: "find / glob"
     contract: "Detecta existencia de archivos de configuración o artefactos. La existencia de un archivo NO prueba su uso (ej. .eslintrc presente pero lint no corre en CI)."
     output: "Lista de rutas encontradas"
-    scoring: "T1: solo, el rating máximo es P (2.0). Para superar P, combinar con el check T2 que pruebe uso real (ej. ci_config_analysis)."
+    scoring: "T1: un pass sostenido solo por existencia de archivos queda unconfirmed — para confirmar, combinar con el check T2 que pruebe uso real (ej. ci_config_analysis)."
 
   directory_structure_analysis:
     tier: T1
@@ -183,7 +188,7 @@ checks:
   mutation_testing:
     tier: T2
     tool: "Stryker (JS/TS), PITest (JVM), mutmut (Python)"
-    command: "npx stryker@<versión pinneada> run --reporters json  # solo sobre módulos de negocio, acotado por tiempo; versión registrada en manifest.json"
+    command: "npx --no-install stryker run --reporters json  # stryker ya declarado y pinneado en el repo o imagen preinstalada; solo sobre módulos de negocio, acotado por tiempo; versión registrada en manifest.json"
     parsing: "Mutation score (% mutantes muertos)"
     score_mapping:
       - "Mutation score < 30% con cobertura declarada > 70% => pruebas fantasma probables => <= 2.0"

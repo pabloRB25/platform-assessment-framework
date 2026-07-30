@@ -23,10 +23,14 @@ sub_dimensions:
         query: "console.log|print_r|var_dump|System.out.println"
         paths: ["src/"]
     nplf_criteria:
-      - "Existe configuración de linter y formateador para el stack principal"
-      - "El lint corre como gate obligatorio en CI (evidencia: workflow + branch protection)"
-      - "No hay logs de depuración abandonados en código de producción"
-      - "La convención de nombres es consistente en el muestreo T3"
+      - id: "D2.1.C1"
+        text: "Existe configuración de linter y formateador para el stack principal"
+      - id: "D2.1.C2"
+        text: "El lint corre como gate obligatorio en CI (evidencia: workflow + branch protection)"
+      - id: "D2.1.C3"
+        text: "No hay logs de depuración abandonados en código de producción"
+      - id: "D2.1.C4"
+        text: "La convención de nombres es consistente en el muestreo T3"
     rubric:
       1.0: "Sin herramientas de linting ni formato; código inconsistente y con logs de depuración abandonados"
       2.0: "Linter presente pero desactualizado o con la mitad de reglas deshabilitadas"
@@ -44,10 +48,14 @@ sub_dimensions:
       - check_ref: "file_exists"
         patterns: ["sonar-project.properties"]
     nplf_criteria:
-      - "Complejidad ciclomática promedio < 10 y sin funciones > 15 (evidencia: lizard/radon)"
-      - "Duplicación total < 8% (evidencia: jscpd)"
-      - "No existen archivos > 1000 líneas con lógica de negocio (Clases Dios)"
-      - "La deuda estructural se mide de forma recurrente (herramienta en CI o corte trimestral)"
+      - id: "D2.2.C1"
+        text: "Complejidad ciclomática promedio < 10 y sin funciones > 15 (evidencia: lizard/radon)"
+      - id: "D2.2.C2"
+        text: "Duplicación total < 8% (evidencia: jscpd)"
+      - id: "D2.2.C3"
+        text: "No existen archivos > 1000 líneas con lógica de negocio (Clases Dios)"
+      - id: "D2.2.C4"
+        text: "La deuda estructural se mide de forma recurrente (herramienta en CI o corte trimestral)"
     rubric:
       1.0: "Presencia de Clases Dios (> 1000 líneas), complejidad ciclomática > 15 y alta duplicación"
       2.0: "Varias funciones > 15 de complejidad y duplicación 8-15%"
@@ -66,10 +74,14 @@ sub_dimensions:
         query: "interface|implements|abstract class|Inject|Autowired"
         paths: ["src/"]
     nplf_criteria:
-      - "Las dependencias se inyectan (constructor/factoría), no se instancian dentro de la lógica de negocio"
-      - "Las clases/módulos del muestreo tienen una única responsabilidad identificable"
-      - "Las abstracciones existen donde hay variación real (no interfaces ceremoniales vacías)"
-      - "No hay singletons globales mutables en el flujo de negocio"
+      - id: "D2.3.C1"
+        text: "Las dependencias se inyectan (constructor/factoría), no se instancian dentro de la lógica de negocio"
+      - id: "D2.3.C2"
+        text: "Las clases/módulos del muestreo tienen una única responsabilidad identificable"
+      - id: "D2.3.C3"
+        text: "Las abstracciones existen donde hay variación real (no interfaces ceremoniales vacías)"
+      - id: "D2.3.C4"
+        text: "No hay singletons globales mutables en el flujo de negocio"
     rubric:
       1.0: "Código fuertemente acoplado, uso masivo de singletons globales o código monolítico sin interfaces"
       2.0: "Abstracciones ocasionales; instanciación directa dominante en servicios"
@@ -88,10 +100,14 @@ sub_dimensions:
         query: "printStackTrace|catch\\s*\\(Throwable"
         paths: ["src/"]
     nplf_criteria:
-      - "Cero capturas silenciosas de excepciones en flujos de negocio (evidencia: semgrep)"
-      - "Existe manejador global de errores que no fuga stack traces al cliente"
-      - "Los errores se registran con contexto estructurado (código de error, trace id)"
-      - "Existe jerarquía de errores de dominio distinguible de errores de infraestructura"
+      - id: "D2.4.C1"
+        text: "Cero capturas silenciosas de excepciones en flujos de negocio (evidencia: semgrep)"
+      - id: "D2.4.C2"
+        text: "Existe manejador global de errores que no fuga stack traces al cliente"
+      - id: "D2.4.C3"
+        text: "Los errores se registran con contexto estructurado (código de error, trace id)"
+      - id: "D2.4.C4"
+        text: "Existe jerarquía de errores de dominio distinguible de errores de infraestructura"
     rubric:
       1.0: "Captura silenciosa de excepciones o fuga de stack trace sensible a clientes"
       2.0: "Errores logueados sin contexto; capturas genéricas dominantes"

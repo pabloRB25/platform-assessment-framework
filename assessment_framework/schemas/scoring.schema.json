@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://alyp.studio/paf/schemas/scoring.schema.json",
+  "title": "PAF Scoring — results/scoring.json (calculado por el orquestador, cero juicio)",
+  "type": "object",
+  "required": ["profile", "sub_dimensions", "dimensions", "global"],
+  "properties": {
+    "profile": { "type": "string" },
+    "sub_dimensions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "rating", "score", "counts", "risk_gate", "evidence_limit"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^(D[1-9]|DAI)\\.[0-9]$" },
+          "rating": { "enum": ["F", "L", "P", "N", "unknown", "na"] },
+          "score": { "enum": [1.0, 2.0, 3.5, 5.0, null] },
+          "counts": {
+            "type": "object",
+            "required": ["pass", "fail", "unknown", "unconfirmed"],
+            "properties": {
+              "pass": { "type": "integer", "minimum": 0 },
+              "fail": { "type": "integer", "minimum": 0 },
+              "unknown": { "type": "integer", "minimum": 0 },
+              "unconfirmed": { "type": "integer", "minimum": 0, "description": "pass solo-T1 reclasificados (evidence_resolution.t1_pass)" }
+            },
+            "additionalProperties": false
+          },
+          "risk_gate": { "type": "boolean", "description": "true solo con fail crítico DEMOSTRADO (gate_semantics.risk_gate)" },
+          "evidence_limit": { "type": "boolean", "description": "true por insuficiencia de evidencia en zona crítica — no es riesgo demostrado" },
+          "gate_criteria_failed": { "type": "array", "items": { "type": "string" } },
+          "na_reason": { "type": ["string", "null"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "dimensions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "score", "confidence", "coverage_ratio"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^(D[1-9]|DAI)$" },
+          "score": { "type": ["number", "null"], "minimum": 1.0, "maximum": 5.0 },
+          "confidence": { "enum": ["high", "medium", "low"] },
+          "coverage_ratio": { "type": "number", "minimum": 0, "maximum": 1 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "global": {
+      "type": "object",
+      "required": ["phs_ponderado", "phs_reportable", "provisional", "risk_gates", "evidence_limits", "hri_count", "coverage_ratio", "target_phs", "gap"],
+      "properties": {
+        "phs_ponderado": { "type": "number", "minimum": 1.0, "maximum": 5.0 },
+        "phs_reportable": { "type": "number", "minimum": 1.0, "maximum": 5.0 },
+        "provisional": { "type": "boolean" },
+        "risk_gates": { "type": "array", "items": { "type": "string" }, "description": "criterios/sub-dimensiones que activaron el cap" },
+        "evidence_limits": { "type": "array", "items": { "type": "string" } },
+        "hri_count": {
+          "type": "object",
+          "required": ["critico", "alto"],
+          "properties": {
+            "critico": { "type": "integer", "minimum": 0 },
+            "alto": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": false
+        },
+        "coverage_ratio": { "type": "number", "minimum": 0, "maximum": 1 },
+        "target_phs": { "type": "number" },
+        "gap": { "type": "number" }
+      },
+      "additionalProperties": false
+    },
+    "corrections_log": {
+      "type": "string",
+      "description": "Ruta al log append-only de correcciones humanas (results/correcciones.jsonl)"
+    }
+  },
+  "additionalProperties": false
+}

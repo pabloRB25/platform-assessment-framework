@@ -42,8 +42,8 @@ assessment_framework/
 1. **Lectura de Configuración:** El Agente lee `config/weights_and_thresholds.yaml` para determinar las ponderaciones y el **nivel objetivo** del proyecto según su perfil (**Fintech, SaaS, MVP o AI-Native / Agentic** — los 4 perfiles existen en el YAML) y `config/checks_catalog.yaml` para el contrato de cada check.
 2. **Inventario de Accesos:** Registra qué evidencia es accesible (repo, historial git, CI, consola cloud). Lo inaccesible se rige por la política N/D — nunca se estima.
 3. **Ejecución Paralela de Dimensiones:** Ejecuta los checklists de `dimensions/` (D1 a D9 y DAI) — las 10 dimensiones son independientes. Dentro de DAI, la atribución (DAI.0) se resuelve primero porque define el universo del módulo.
-4. **Archivo de Evidencia:** Todo output de herramienta se guarda en `evidence/` con hash. Un score T2 sin evidencia archivada se degrada a T1 (techo 3.0).
-5. **Cálculo de Scores:** Método NPLF por sub-dimensión, techos por tier de evidencia, política N/D, **gating rules** (un crítico ≤ 2.0 acota el PHS a 2.9) y conteo de **HRIs** que acompaña siempre al PHS.
+4. **Archivo de Evidencia:** Todo output se registra en `evidence/manifest.json` con EV-id y hash; el **sello final** (secret-scan + freeze read-only) ocurre después del fan-out y la reconciliación. Un resultado T2 sin evidencia archivada se trata como T1 (su pass queda no-confirmado).
+5. **Cálculo de Scores:** Método NPLF por sub-dimensión con tier derivado por criterio, política `unknown`, **`risk_gate`** (fail crítico demostrado acota el PHS a 2.9) vs. **`evidence_limit`** (provisional sin cap), y **HRIs + coverage_ratio** que acompañan siempre al PHS.
 6. **Validación Humana:** Un auditor humano revisa y firma el borrador antes de la entrega — el mismo Human-in-the-Loop que el framework exige en DAI.5.
 7. **Generación de Reporte:** Pobla `templates/template_final_report.md` con evidencias, severidades (Crítico/Alto/Medio/Bajo), confianza por dimensión, delta vs. assessment previo, **Platform Health Score (PHS)** y la sección obligatoria de Limitaciones y Alcance.
 
@@ -51,10 +51,10 @@ assessment_framework/
 
 ### 3. Principios No Negociables
 
-* **Lo crítico no se promedia:** el PHS es narrativa ejecutiva; los HRIs se cuentan y acotan (ISO 33020 / TMMi / AWS WA). Los criterios-gate (secretos vivos, BOLA, backups irrecuperables, dependencia alucinada) activan el techo directamente.
-* **Presencia de strings ≠ verdad:** los greps son señal T1 — solos, rating máximo **P (2.0)**; los scores altos exigen herramienta (T2) o juicio con citas (T3).
-* **Evidencia o no pasó:** todo score debe ser re-verificable desde `evidence/` (manifest.json con hashes) — y la evidencia se custodia: secretos redactados en origen, sin commit, cifrada y con retención definida.
-* **Desconocido ≠ incumplimiento:** un control no comprobable queda `unknown` — degrada la confianza y bloquea el dictamen de alta confianza, sin afirmar que la plataforma es insegura. Solo es `fail` cuando producir la evidencia ES el control.
+* **Solo el riesgo demostrado capa:** un `risk_gate` (criterio-gate en fail con la evidencia exigida — secretos vivos, BOLA, backups irrecuperables, dependencia alucinada) acota el PHS a 2.9; la insuficiencia de evidencia (`evidence_limit`) vuelve el informe PROVISIONAL **sin** afirmar incumplimiento. El `coverage_ratio` acompaña siempre al PHS.
+* **Presencia de strings ≠ verdad:** el tier se deriva **por criterio** desde sus evidence_refs — un `pass` solo-T1 queda no-confirmado (cuenta como unknown); un `fail` sí se demuestra con T1. Confirmar exige herramienta (T2) o juicio con citas (T3).
+* **Evidencia o no pasó:** todo score debe ser re-verificable desde `evidence/` (manifest.json con EV-ids y hashes, sellado DESPUÉS del fan-out y congelado read-only) — y la evidencia se custodia: secretos redactados en origen, sin commit, cifrada y con retención definida.
+* **El subagente no se auto-califica:** reporta estados + evidencia; gate, criticidad, tier y cobertura los deriva el orquestador desde la configuración canónica (schemas en `schemas/`).
 
 ### 4. Validación del Propio Framework
 
@@ -62,7 +62,7 @@ assessment_framework/
 python3 scripts/validate_framework.py
 ```
 
-Valida los YAML contra `schemas/` y cruza consistencia (pesos, check_refs, criticidad, criterios-gate, sub-dimensiones solo-T1). Corre en CI en cada push/PR (`.github/workflows/validate.yml`).
+Valida los YAML contra `schemas/` y cruza consistencia (pesos, check_refs, criticidad, IDs de criterios estables y únicos, criterios-gate, sub-dimensiones solo-T1) **y la coherencia operacional del RUNBOOK** (referencias `DX.Y`, tabla de checks compartidos ↔ declaraciones en dimensiones, JSON de ejemplo contra su schema, orden de fases, términos obsoletos). Corre en CI en cada push/PR (`.github/workflows/validate.yml`).
 
 ### 5. Roadmap de Ejecutabilidad
 

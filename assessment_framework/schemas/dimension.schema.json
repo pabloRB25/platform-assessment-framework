@@ -51,21 +51,16 @@
       "additionalProperties": false
     },
     "criterion": {
-      "oneOf": [
-        { "type": "string", "minLength": 15 },
-        {
-          "type": "object",
-          "required": ["id", "text"],
-          "properties": {
-            "id": { "type": "string", "pattern": "^(D[1-9]|DAI)\\.[0-9]\\.C[0-9]+$" },
-            "text": { "type": "string", "minLength": 15 },
-            "critical": { "type": "boolean" },
-            "failure_effect": { "enum": ["gate"] },
-            "evidence_required": { "enum": ["T1", "T2", "T3"] }
-          },
-          "additionalProperties": false
-        }
-      ]
+      "type": "object",
+      "required": ["id", "text"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^(D[1-9]|DAI)\\.[0-9]\\.C[0-9]+$" },
+        "text": { "type": "string", "minLength": 15 },
+        "critical": { "type": "boolean" },
+        "failure_effect": { "enum": ["gate"] },
+        "evidence_required": { "enum": ["T2", "T3"] }
+      },
+      "additionalProperties": false
     }
   }
 }

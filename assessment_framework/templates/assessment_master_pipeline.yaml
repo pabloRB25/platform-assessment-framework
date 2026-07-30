@@ -1,6 +1,6 @@
 # Pipeline Maestro de Orquestación para Agentes de Evaluación de Software
 pipeline_id: "master_platform_assessment_pipeline"
-version: "3.1.0"
+version: "3.2.0"
 description: "Workflow para la ejecución completa del assessment (10 Dimensiones, Gating Rules, Tiers de Evidencia, custodia de evidencia y validación humana)"
 
 steps:
@@ -53,26 +53,27 @@ steps:
       - "Hallazgos duplicados entre dimensiones se fusionan antes del scoring."
 
   - step: 5
-    name: "Archivo de Evidencia (con custodia)"
+    name: "Sello de Evidencia (con custodia) — SIEMPRE después del fan-out y la reconciliación"
     action: "archive_evidence"
     outputs_dir: "evidence/"
     rules:
-      - "Todo output de herramienta se guarda en evidence/ con hash SHA-256, cumpliendo evidence_custody (checks_catalog.yaml): secretos SIEMPRE redactados en origen, evidence/ nunca commiteado, cifrado al salir de la máquina del auditor, retención y destrucción registradas."
-      - "Se genera evidence/manifest.json (machine-readable): por check => ruta, hash, herramienta + versión/digest, comando/argv, commit objetivo, timestamps, exit code. Sin valores sensibles. El SHA-256 del manifest se publica en el informe."
-      - "Secret-scan final SOBRE evidence/: si detecta valores vivos, se regenera con redacción antes de continuar."
-      - "Sin evidencia archivada, un score T2 se degrada a T1 (rating máximo P): el score debe ser re-verificable."
+      - "Durante la recolección (pasos 3-4), evidence/manifest.json se registra INCREMENTAL (sealed: false) con un EV-id por entrada — schema: schemas/manifest.schema.json. Este paso es el SELLO FINAL: incluye también la evidencia generada por subagentes (mutation, performance, muestreos)."
+      - "Todo output cumple evidence_custody (checks_catalog.yaml): secretos SIEMPRE redactados en origen, evidence/ nunca commiteado, cifrado al salir de la máquina del auditor, retención y destrucción registradas."
+      - "Secret-scan final SOBRE evidence/ completo: valores vivos detectados => regenerar con redacción antes de continuar."
+      - "Sellar: sealed: true + sealed_at + SHA-256 por entrada; publicar el SHA-256 del manifest en el informe; congelar evidence/ como read-only (chmod -R a-w)."
+      - "Sin evidencia archivada y registrada, un resultado T2 se trata como T1 (su pass queda unconfirmed): el score debe ser re-verificable."
 
   - step: 6
     name: "Cálculo de Scoring con Gating Rules NPLF"
     action: "calculate_scores_with_gating"
     config_ref: "config/weights_and_thresholds.yaml"
     rules:
-      - "Sub-dimensión: NPLF sobre criterios pass/fail (los unknown salen del denominador y degradan confianza)."
-      - "Evidencia solo T1 => rating máximo P (2.0)."
-      - "Criterio critical en fail => gate directo (equivale a sub-dimensión <= 2.0)."
-      - "Gating: sub-dimensión crítica <= 2.0 o criterio-gate en fail => PHS reportable acotado a 2.9."
-      - "unknown en sub-dimensión crítica => confidence low, PHS PROVISIONAL, estado de salud no puede declararse >= 'Bueno/Estable'."
-      - "Calcular hri_count (Críticos + Altos) — se reporta SIEMPRE junto al PHS — y gap vs target_phs del perfil."
+      - "Sub-dimensión: NPLF sobre criterios pass/fail; los unknown salen del denominador. Tier derivado POR CRITERIO desde evidence_refs + manifest + catálogo (nunca declarado por el subagente)."
+      - "pass sostenido solo por T1 => unconfirmed (tratado como unknown). fail con T1 es válido (evidence_resolution)."
+      - "risk_gate (fail crítico DEMOSTRADO: criterio-gate en fail con evidence_required cumplido, o crítica <= P por fails reales) => PHS reportable acotado a 2.9."
+      - "evidence_limit (crítica unknown o todos-unconfirmed, o criterio-gate unknown) => PHS PROVISIONAL + confidence low, SIN cap — insuficiencia de evidencia no es riesgo demostrado."
+      - "Calcular coverage_ratio (peso realmente evaluado) por dimensión y global — se reporta SIEMPRE junto al PHS."
+      - "Calcular hri_count (Críticos + Altos) y gap vs target_phs del perfil. Output: results/scoring.json (schema: schemas/scoring.schema.json)."
 
   - step: 7
     name: "Validación Humana del Borrador"

@@ -1,5 +1,5 @@
 # Configuración de Ponderaciones, Umbrales y Gating Rules del Assessment
-framework_version: "3.1.0"
+framework_version: "3.2.0"
 author: "Studio Architecture & Quality Practice"
 
 # ============================================================
@@ -31,21 +31,41 @@ nplf_method:
     - "score_subdimension = score del rating NPLF. Valores válidos: 1.0, 2.0, 3.5, 5.0 — prohibido reportar decimales no derivados del método."
     - "La rúbrica narrativa 1-5 es sanity-check cualitativo, nunca la fuente del score."
   evidence_resolution:
-    t1_only_cap: "P"   # RESOLUCIÓN T1/NPLF: sub-dimensión soportada SOLO por evidencia T1 => rating máximo P (2.0). El dominio NPLF se mantiene cerrado; no existe el 'techo 3.0'.
+    # El tier se deriva POR CRITERIO desde sus evidence_refs — nunca lo declara el
+    # subagente (anti tier-laundering: una sola evidencia T2 en una sub-dimensión
+    # mayormente T1 ya no levanta ningún techo, porque no hay techo por sub-dimensión).
+    tier_derivation: "EV-id del manifest => check_ref => tier del catálogo. Cita archivo:línea => T3 solo si la sub-dimensión declara un check T3 (code_judgment_review / architecture_conformance_review / llm_feature_security_review); si no, cuenta como T1."
+    t1_pass: "unconfirmed"  # Un PASS sostenido SOLO por evidencia T1 no confirma nada: se reclasifica como no-confirmado y se trata como unknown (sale del denominador, suma a evidence_limit). Reemplaza al viejo techo P por sub-dimensión.
+    t1_fail: "valid"        # Un FAIL sí puede demostrarse con T1: la PRESENCIA del anti-patrón (el match citado) es la evidencia.
   critical_criteria:
-    description: "Un criterio puede declararse con critical: true y failure_effect: gate. Su FAIL activa directamente las gating rules (equivale a sub-dimensión <= 2.0), sin esperar al promedio: secretos vivos, BOLA demostrable, backups irrecuperables, wildcard IAM en producción, dependencia alucinada, push directo a main sin protección."
-    schema: "Los criterios aceptan forma string (peso uniforme) u objeto: {id, text, critical, failure_effect: gate, evidence_required: T2|T3}."
+    description: "Un criterio puede declararse con critical: true y failure_effect: gate. Su FAIL demostrado (con el tier de evidence_required cumplido) activa directamente el risk_gate: secretos vivos, inyección demostrable, BOLA, backups irrecuperables, datos expuestos, dependencia alucinada, push directo a main."
+    schema: "Todo criterio es un objeto {id, text} con opcionales {critical, failure_effect: gate, evidence_required: T2|T3}. Los IDs (DX.Y.Cn) son ESTABLES: nunca se renumeran ni reordenan dentro de una versión; agregar criterios es append-only."
+
+# ------------------------------------------------------------
+# 1.2 Semántica de gates — riesgo demostrado vs. evidencia insuficiente
+# Confundirlos convierte "no pude verlo" en "es inseguro": prohibido.
+# ------------------------------------------------------------
+gate_semantics:
+  risk_gate:
+    definition: "FAIL crítico DEMOSTRADO: (a) criterio-gate en fail con su evidence_required cumplido, o (b) sub-dimensión crítica con rating <= P derivado de fails reales (evaluables >= 1)."
+    effect: "PHS_reportable = min(PHS_ponderado, 2.9). Se nombra el criterio/sub-dimensión que lo activa."
+  evidence_limit:
+    definition: "Insuficiencia de evidencia en zona crítica: sub-dimensión crítica unknown (incluye todos-los-pass-no-confirmados por T1), o criterio-gate en unknown."
+    effect: "NO activa el cap. PHS marcado PROVISIONAL, confidence low, estado de salud no declarable >= 'Bueno/Estable'. El informe lo lista como limitación bloqueante, no como riesgo."
+  coverage_ratio:
+    definition: "Porcentaje del peso realmente evaluado: por dimensión = suma de pesos de sub-dimensiones con rating efectivo (ni unknown ni N/A) / suma total; global = ponderado por perfil."
+    effect: "Se reporta SIEMPRE junto al PHS. Un PHS con coverage 60% no es comparable con uno de 95% y el informe lo dice."
 
 # ============================================================
 # 2. PRINCIPIOS DE SCORING Y TIERS DE EVIDENCIA
 # ============================================================
 scoring_principles:
-  gating_rule: "Cualquier sub-dimensión crítica con score <= 2.0 — o cualquier criterio critical en estado fail — acota el PHS reportable a un máximo de 2.9 (En Riesgo)."
+  gating_rule: "risk_gate (fail crítico demostrado — ver gate_semantics) => PHS reportable acotado a 2.9. La insuficiencia de evidencia NUNCA activa el cap: produce evidence_limit (provisional)."
   evidence_tiers:
-    T1: "Señal superficial (grep, file_exists, estructura) - Indica, nunca confirma. Sola => rating máximo P (2.0)."
-    T2: "Métrica de herramienta reproducible (gitleaks, Semgrep, Trivy, jscpd, Lizard, Prowler, Stryker, endoflife.date) - Elegible F (5.0)."
-    T3: "Juicio experto con citas archivo:línea obligatorias - Elegible F (5.0)."
-  hri_reporting: "El informe muestra SIEMPRE: PHS reportable + 'HRIs abiertos: N' (Críticos + Altos, nunca promediados) + la sub-dimensión o criterio que activa el techo (si aplica)."
+    T1: "Señal superficial (grep, file_exists, estructura) - Detecta presencia (puede demostrar un fail); NUNCA confirma un pass (pass solo-T1 = unconfirmed)."
+    T2: "Métrica de herramienta reproducible (gitleaks, Semgrep, Trivy, jscpd, Lizard, Prowler, Stryker, endoflife.date) - Confirma pass y fail."
+    T3: "Juicio experto con citas archivo:línea obligatorias - Confirma pass y fail."
+  hri_reporting: "El informe muestra SIEMPRE: PHS reportable + 'HRIs abiertos: N' (Críticos + Altos, nunca promediados) + coverage_ratio + el criterio/sub-dimensión que activa el risk_gate o el evidence_limit (si aplica)."
 
 critical_sub_dimensions:
   - "D3.1" # Autenticación y Autorización
@@ -64,9 +84,10 @@ critical_sub_dimensions:
 # ============================================================
 unknown_policy:
   general: "Check no ejecutable (sin acceso a infra/, historial de pipeline, consola cloud, historial git) => los criterios afectados quedan en estado unknown, se excluyen del denominador NPLF y se listan en 'Limitaciones y Alcance'."
-  critical_subdimension: "unknown en sub-dimensión crítica => confidence de la dimensión = low, el PHS se marca PROVISIONAL y el informe NO puede declarar un estado de salud >= 'Bueno / Estable'. No se asigna 1.0 automáticamente."
+  critical_subdimension: "unknown en sub-dimensión crítica => evidence_limit (ver gate_semantics): confidence low, PHS PROVISIONAL, estado no declarable >= 'Bueno / Estable'. No se asigna 1.0 automáticamente y NO activa el risk_gate."
   evidence_is_the_control: "Excepción: cuando la capacidad de producir la evidencia ES el control evaluado (p.ej. auditoría/logging habilitado, historial de pipeline existente), la ausencia de evidencia sí es fail."
-  non_critical_subdimension: "Sub-dimensión completa en unknown y no crítica => se excluye renormalizando pesos y se degrada la confianza de la dimensión."
+  non_critical_subdimension: "Sub-dimensión completa en unknown y no crítica => se excluye renormalizando pesos, se degrada la confianza de la dimensión y baja el coverage_ratio."
+  numeric_participation: "Una sub-dimensión unknown (crítica o no) NUNCA aporta un número al SD: se excluye con renormalización de pesos y su peso excluido se refleja en coverage_ratio. Lo crítico-unknown además dispara evidence_limit."
 
 confidence_levels:
   high: "Todos los checks T2/T3 planificados ejecutados con evidencia archivada; cero unknown en críticas."

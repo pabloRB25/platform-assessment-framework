@@ -16,11 +16,13 @@
 #### Platform Health Score Reportable: **{{PHS_REPORTABLE}} / 5.0** (PHS Ponderado: {{PHS_PONDERADO}}){{PHS_PROVISIONAL_FLAG}}
 **Estado de Salud:** **{{HEALTH_STATUS}}**  
 **Conteo de Hallazgos de Alto Riesgo (HRIs Abiertos):** **{{HRI_COUNT}}** ({{HRI_CRITICAL_COUNT}} Críticos / {{HRI_HIGH_COUNT}} Altos)  
-**Gating Rule Activada:** {{GATING_RULE_STATUS}} *(Si existe sub-dimensión crítica ≤ 2.0 o un criterio-gate en fail, el PHS reportable se acota a máximo 2.9)*  
+**Cobertura de la Evaluación (coverage_ratio):** {{COVERAGE_RATIO}} *(porcentaje del peso del perfil realmente evaluado — un PHS con cobertura baja no es comparable con uno de cobertura alta)*  
+**Risk Gates Activados:** {{RISK_GATES}} *(fail crítico DEMOSTRADO ⇒ PHS acotado a máximo 2.9)*  
+**Limitaciones de Evidencia (evidence_limit):** {{EVIDENCE_LIMITS}} *(insuficiencia de evidencia en zona crítica ⇒ PHS PROVISIONAL, sin cap — no afirma incumplimiento)*  
 **Gap vs. Nivel Objetivo del Perfil:** {{TARGET_GAP}}  
 **Diagnóstico Sintético:** {{EXECUTIVE_SUMMARY}}
 
-> Si algún control crítico quedó en estado **unknown** (evidencia no disponible), el PHS se marca **PROVISIONAL**: el informe no puede declarar un estado ≥ "Bueno / Estable" hasta completar esa evidencia. Desconocido ≠ incumplimiento.
+> **Riesgo demostrado ≠ evidencia insuficiente.** Un `risk_gate` acota el PHS porque hay un fail crítico con evidencia. Un `evidence_limit` marca el PHS como **PROVISIONAL** (no declarable ≥ "Bueno / Estable") porque un control crítico no pudo comprobarse — se pide la evidencia, no se declara el riesgo.
 
 #### Evolución vs. Assessment Anterior
 {{DELTA_SECTION}} <!-- "Baseline inicial — sin assessment previo" | tabla PHS anterior→actual + delta por dimensión + HRIs cerrados/nuevos. Si no se cumplen delta_comparability_rules: "delta indicativo, no comparable" con el motivo. -->

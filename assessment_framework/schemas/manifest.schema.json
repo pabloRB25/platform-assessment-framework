@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://alyp.studio/paf/schemas/manifest.schema.json",
+  "title": "PAF Evidence Manifest — evidence/manifest.json",
+  "description": "Registro machine-readable de toda la evidencia. Los EV-ids son la moneda de referencia de los subagentes (evidence_refs). Sin valores sensibles: solo rutas, hashes y metadatos de ejecución.",
+  "type": "object",
+  "required": ["sealed", "framework_version", "catalog_version", "targets", "entries"],
+  "properties": {
+    "sealed": { "type": "boolean", "description": "false durante la recolección (registro incremental); true tras el sello final (post-reconciliación). Tras el sello, evidence/ se congela read-only." },
+    "sealed_at": { "type": ["string", "null"], "format": "date-time" },
+    "framework_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "catalog_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "targets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["repo", "sha"],
+        "properties": {
+          "repo": { "type": "string" },
+          "branch": { "type": "string" },
+          "sha": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "path", "sha256", "check_ref", "tool", "argv", "started_at", "finished_at", "exit_code"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^EV-[0-9]{4,}$" },
+          "path": { "type": "string", "pattern": "^evidence/" },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "check_ref": { "type": "string" },
+          "tool": { "type": "string" },
+          "tool_version": { "type": "string" },
+          "tool_digest": { "type": "string" },
+          "argv": { "type": "array", "items": { "type": "string" } },
+          "target_sha": { "type": "string" },
+          "started_at": { "type": "string", "format": "date-time" },
+          "finished_at": { "type": "string", "format": "date-time" },
+          "exit_code": { "type": "integer" },
+          "produced_by": { "enum": ["orquestador", "subagente"] },
+          "redacted": { "type": "boolean" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

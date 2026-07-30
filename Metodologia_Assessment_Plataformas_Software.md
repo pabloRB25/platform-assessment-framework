@@ -11,9 +11,9 @@ El objetivo es evaluar holísticamente una plataforma tecnológica a través de 
 
 **Tres principios rectores del scoring:**
 
-1. **Lo crítico no se promedia.** Siguiendo ISO/IEC 33020, TMMi y AWS Well-Architected (que cuenta HRIs y jamás promedia), cualquier sub-dimensión crítica con score ≤ 2.0 — o cualquier **criterio-gate** en fail (secretos vivos, BOLA demostrable, backups irrecuperables, datos expuestos, dependencia alucinada) — **acota el PHS reportable a 2.9** ("En Riesgo"). Una plataforma con secretos en producción no puede salir "Estable" por promedio.
-2. **Presencia de strings ≠ verdad.** La evidencia se clasifica en tiers: T1 (señales grep/file_exists — solas, rating máximo **P = 2.0**), T2 (métricas de herramienta reproducibles) y T3 (juicio experto con citas `archivo:línea`). Los scores altos exigen T2/T3.
-3. **Reproducibilidad ante todo.** Cada sub-dimensión se califica con el método **NPLF (ISO/IEC 33020)** sobre criterios explícitos con tres estados (`pass`/`fail`/`unknown`) — dos corridas del mismo assessment deben dar el mismo resultado, y **desconocido nunca se confunde con incumplimiento**.
+1. **Lo crítico no se promedia — y solo el riesgo *demostrado* capa.** Siguiendo ISO/IEC 33020, TMMi y AWS Well-Architected (que cuenta HRIs y jamás promedia), un **`risk_gate`** — criterio-gate en fail con la evidencia exigida (secretos vivos, inyección demostrable, BOLA, backups irrecuperables, datos expuestos, dependencia alucinada), o sub-dimensión crítica hundida por fails reales — **acota el PHS reportable a 2.9**. La *insuficiencia de evidencia* en zona crítica (**`evidence_limit`**) nunca capa: vuelve el informe PROVISIONAL sin afirmar incumplimiento.
+2. **Presencia de strings ≠ verdad.** El tier de evidencia se deriva **por criterio** (nunca lo declara el evaluador): un `pass` sostenido solo por señales T1 (grep/file_exists) queda **no-confirmado** y se trata como desconocido; un `fail` sí puede demostrarse con T1 (la presencia del anti-patrón citado es la evidencia). Confirmar exige T2 (herramienta) o T3 (juicio con citas `archivo:línea`).
+3. **Reproducibilidad ante todo.** Cada sub-dimensión se califica con el método **NPLF (ISO/IEC 33020)** sobre criterios con **IDs estables** (`DX.Y.Cn`, append-only) y tres estados (`pass`/`fail`/`unknown`). El **`coverage_ratio`** (peso realmente evaluado) acompaña siempre al PHS: un PHS con cobertura 60% no se compara con uno de 95%.
 
 ---
 
@@ -121,26 +121,27 @@ Cada sub-dimensión define en su YAML una lista de **criterios** (`nplf_criteria
 | **N** (Not) | 0–15% | 1.0 |
 
 Reglas adicionales:
-* **Criterios-gate:** un criterio puede declararse `critical: true, failure_effect: gate` — su `fail` activa el gating directamente (equivale a sub-dimensión ≤ 2.0), sin esperar al promedio. Así, una sub-dimensión que aprueba 4 de 5 criterios pero falla el crítico (p.ej. secretos vivos) no puede esconderse detrás de un "L = 3.5".
-* **Resolución T1/NPLF:** una sub-dimensión soportada **solo por evidencia T1** tiene rating máximo **P (2.0)** — el dominio de scores se mantiene cerrado en {1.0, 2.0, 3.5, 5.0}; no existe el "techo 3.0".
+* **Criterios-gate:** un criterio `critical: true, failure_effect: gate` cuyo `fail` está **demostrado** (con el tier de `evidence_required` cumplido) activa el `risk_gate` directamente, sin esperar al promedio. Una sub-dimensión que aprueba 4 de 5 criterios pero falla el crítico (p.ej. secretos vivos) no puede esconderse detrás de un "L = 3.5".
+* **Resolución T1/NPLF (anti tier-laundering):** el tier se deriva **por criterio** desde sus referencias de evidencia (EV-id del manifest → check → tier del catálogo). Un `pass` solo-T1 se reclasifica **no-confirmado** (sale del denominador como unknown); un `fail` con T1 es válido. El dominio de scores se mantiene cerrado en {1.0, 2.0, 3.5, 5.0} — y una evidencia T2 aislada ya no "lava" una sub-dimensión mayormente T1, porque no hay techo por sub-dimensión que levantar.
 * Las rúbricas narrativas (ancladas 1.0–5.0 en los YAML) son sanity-check cualitativo. **Prohibido reportar decimales no derivados del método** (un "3.74" sin ancla es falsa precisión).
 
 #### 4.2 Tiers de Evidencia
 
-| Tier | Tipo | Ejemplos | Efecto en el score |
+| Tier | Tipo | Ejemplos | Efecto en el score (por criterio) |
 | :---: | :--- | :--- | :--- |
-| **T1** | Señal | grep, file_exists | Sola ⇒ rating máximo **P (2.0)** — indica, nunca confirma |
-| **T2** | Métrica de herramienta | gitleaks, Semgrep, Trivy/OSV, jscpd, lizard, Prowler, Stryker, endoflife.date | Elegible F (5.0) |
-| **T3** | Juicio con evidencia | Lectura real de código/arquitectura, citas `archivo:línea` obligatorias | Elegible F (5.0) |
+| **T1** | Señal | grep, file_exists | Demuestra `fail` (presencia del anti-patrón); un `pass` solo-T1 = **no-confirmado** (cuenta como unknown) |
+| **T2** | Métrica de herramienta | gitleaks, Semgrep, Trivy/OSV, jscpd, lizard, Prowler, Stryker, endoflife.date | Confirma `pass` y `fail` |
+| **T3** | Juicio con evidencia | Lectura real de código/arquitectura, citas `archivo:línea` obligatorias | Confirma `pass` y `fail` |
 
 El contrato de ejecución de cada check (herramienta, comando, parsing, mapeo a score), la **custodia de evidencia** (redacción en origen, cifrado, retención, `evidence/` jamás commiteado) y los **requisitos del runner seguro** (argv, contenedores efímeros, red deshabilitada por defecto, versiones pinneadas por digest) viven en `config/checks_catalog.yaml`.
 
-#### 4.3 Estado `unknown` y Confianza — desconocido ≠ incumplimiento
+#### 4.3 Estado `unknown`, `evidence_limit` y Cobertura — desconocido ≠ incumplimiento
 
 * Check no ejecutable ⇒ los criterios afectados quedan en **`unknown`**: salen del denominador NPLF y se listan en "Limitaciones y Alcance". **No** se convierte en fail: "no pude comprobarlo" no es "no existe".
-* `unknown` en **sub-dimensión crítica** ⇒ `confidence: low`, el PHS se marca **PROVISIONAL** y el informe no puede declarar un estado ≥ "Bueno / Estable" hasta completar la evidencia.
+* `unknown` (o todos-los-pass no-confirmados) en **sub-dimensión crítica** ⇒ **`evidence_limit`**: `confidence: low`, PHS **PROVISIONAL**, estado no declarable ≥ "Bueno / Estable" — y **sin cap**: la insuficiencia de evidencia nunca se reporta como riesgo demostrado.
+* Una sub-dimensión `unknown` **no aporta número** al SD: se excluye renormalizando pesos, y su peso excluido baja el **`coverage_ratio`** (porcentaje del peso realmente evaluado), que acompaña siempre al PHS.
 * **Excepción:** cuando producir la evidencia ES el control evaluado (auditoría/logging habilitado, historial de pipeline existente), la ausencia sí es `fail`.
-* Cada dimensión reporta `confidence: Alta | Media | Baja` en el informe.
+* Cada dimensión reporta `confidence: Alta | Media | Baja` y su `coverage_ratio` en el informe.
 
 #### 4.4 Cálculo del Puntaje por Dimensión ($SD$)
 
@@ -155,8 +156,9 @@ $$PHS_{ponderado} = \sum_{k=1}^{10} (SD_k \times W_k) \quad \text{donde} \quad \
 Pero el PHS **reportable** aplica las gating rules (`config/weights_and_thresholds.yaml`):
 
 * Sub-dimensiones críticas: **D3.1, D3.2, D3.4, D3.5, D6.4, D9.1, DAI.1**.
-* Si cualquiera de ellas ≤ 2.0 — **o cualquier criterio-gate está en `fail`** — ⇒ $PHS_{reportable} = \min(PHS_{ponderado},\ 2.9)$.
-* El informe muestra **siempre**: PHS + **HRIs abiertos: N** (hallazgos Crítico + Alto, nunca promediados) + la sub-dimensión o criterio que activa el techo.
+* **`risk_gate`** (riesgo demostrado): criterio-gate en `fail` con su `evidence_required` cumplido, o crítica con rating ≤ P por fails reales ⇒ $PHS_{reportable} = \min(PHS_{ponderado},\ 2.9)$.
+* **`evidence_limit`** (insuficiencia): crítica `unknown` o criterio-gate `unknown` ⇒ PHS PROVISIONAL sin cap — se pide la evidencia, no se declara el riesgo.
+* El informe muestra **siempre**: PHS + **HRIs abiertos: N** (Crítico + Alto, nunca promediados) + **coverage_ratio** + el criterio/sub-dimensión que activa el `risk_gate` o el `evidence_limit`.
 
 #### 4.6 Pesos por Defecto según Tipo de Plataforma ($W_k$)
 
@@ -195,7 +197,7 @@ Taxonomía de severidad de hallazgos: **Crítico** (HRI, ≤ 7 días) · **Alto*
 
 ### 6. Matriz de Entregables del Studio
 
-1. **Executive Dashboard (Score & Radar Chart):** Nivel por dimensión, PHS + **conteo de HRIs**, confianza por dimensión y gap vs. nivel objetivo.
+1. **Executive Dashboard (Score & Radar Chart):** Nivel por dimensión, PHS + **conteo de HRIs** + **coverage_ratio**, confianza por dimensión y gap vs. nivel objetivo.
 2. **Technical Deep-Dive Report:** Hallazgos por sub-dimensión con evidencia `archivo:línea` + commit + output de herramienta archivado en `evidence/` (re-verificable por hash).
 3. **AI Code Integrity & Risk Audit:** Reporte específico sobre atribución, calidad y riesgos del código agéntico.
 4. **Remediation Roadmap (Prioridad vs. Esfuerzo):** Matriz 2x2 para orientar la inversión del cliente.

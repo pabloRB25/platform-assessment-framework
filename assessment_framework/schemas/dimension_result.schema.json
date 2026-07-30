@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://alyp.studio/paf/schemas/dimension_result.schema.json",
+  "title": "PAF Dimension Result — output de un subagente de dimensión (results/{DX}.json)",
+  "description": "Contrato MÍNIMO: el subagente reporta estados y evidencia. Todo lo que afecta el scoring (gate, criticidad, tier, texto del criterio, cobertura) lo deriva el orquestador desde el YAML de dimensión, el catálogo y el manifest — nunca lo declara el subagente.",
+  "type": "object",
+  "required": ["dimension_id", "targets", "executed_at", "criteria_results", "findings"],
+  "properties": {
+    "dimension_id": { "type": "string", "pattern": "^(D[1-9]|DAI)$" },
+    "targets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["repo", "sha"],
+        "properties": {
+          "repo": { "type": "string" },
+          "branch": { "type": "string" },
+          "sha": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "executed_at": { "type": "string", "format": "date-time" },
+    "criteria_results": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["criterion_ref", "state", "evidence_refs"],
+        "properties": {
+          "criterion_ref": { "type": "string", "pattern": "^(D[1-9]|DAI)\\.[0-9]\\.C[0-9]+$" },
+          "state": { "enum": ["pass", "fail", "unknown"] },
+          "evidence_refs": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/evidenceRef" },
+            "description": "Obligatorio no-vacío para pass/fail; puede ser vacío solo en unknown"
+          },
+          "unknown_reason": { "type": ["string", "null"] },
+          "finding_refs": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "^(D[1-9]|DAI)-F[0-9]+$" }
+          },
+          "note": { "type": ["string", "null"], "maxLength": 300 }
+        },
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": { "properties": { "state": { "enum": ["pass", "fail"] } } },
+            "then": { "properties": { "evidence_refs": { "minItems": 1 } } }
+          },
+          {
+            "if": { "properties": { "state": { "const": "unknown" } } },
+            "then": { "required": ["unknown_reason"], "properties": { "unknown_reason": { "type": "string", "minLength": 10 } } }
+          }
+        ]
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "severity", "title", "description", "evidence_refs", "sub_dimension"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^(D[1-9]|DAI)-F[0-9]+$" },
+          "severity": { "enum": ["critico", "alto", "medio", "bajo"] },
+          "title": { "type": "string", "minLength": 10, "maxLength": 120 },
+          "description": { "type": "string", "minLength": 20, "maxLength": 600 },
+          "evidence_refs": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/evidenceRef" } },
+          "control_ref": { "type": "string" },
+          "sub_dimension": { "type": "string", "pattern": "^(D[1-9]|DAI)\\.[0-9]$" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "na_subdimensions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "reason"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^(D[1-9]|DAI)\\.[0-9]$" },
+          "reason": { "type": "string", "minLength": 10 }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "evidenceRef": {
+      "type": "string",
+      "description": "O bien un EV-id del evidence/manifest.json (EV-0042), o una cita de repo path:línea@sha",
+      "pattern": "^(EV-[0-9]{4,}|[^\\s:]+:[0-9]+(-[0-9]+)?@[0-9a-f]{7,40})$"
+    }
+  }
+}

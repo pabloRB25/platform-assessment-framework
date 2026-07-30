@@ -7,6 +7,7 @@
     "framework_version",
     "scoring_scale",
     "nplf_method",
+    "gate_semantics",
     "scoring_principles",
     "critical_sub_dimensions",
     "unknown_policy",
@@ -54,10 +55,22 @@
         "rules": { "type": "array", "items": { "type": "string" } },
         "evidence_resolution": {
           "type": "object",
-          "required": ["t1_only_cap"],
-          "properties": { "t1_only_cap": { "const": "P" } }
+          "required": ["tier_derivation", "t1_pass", "t1_fail"],
+          "properties": {
+            "tier_derivation": { "type": "string" },
+            "t1_pass": { "const": "unconfirmed" },
+            "t1_fail": { "const": "valid" }
+          }
         },
         "critical_criteria": { "type": "object" }
+      }
+    },
+    "gate_semantics": {
+      "type": "object",
+      "required": ["risk_gate", "evidence_limit", "coverage_ratio"],
+      "additionalProperties": {
+        "type": "object",
+        "required": ["definition", "effect"]
       }
     },
     "scoring_principles": { "type": "object", "required": ["gating_rule", "evidence_tiers"] },

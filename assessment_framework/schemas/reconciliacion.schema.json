@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://alyp.studio/paf/schemas/reconciliacion.schema.json",
+  "title": "PAF Reconciliación — results/reconciliacion.json",
+  "type": "object",
+  "required": ["findings", "duplicates_resolved"],
+  "properties": {
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "source_ids", "severity", "title", "description", "evidence_refs", "primary_dimension", "sub_dimension"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^H-[0-9]+$" },
+          "source_ids": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "pattern": "^(D[1-9]|DAI)-F[0-9]+$" }
+          },
+          "severity": { "enum": ["critico", "alto", "medio", "bajo"] },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "evidence_refs": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+          "control_ref": { "type": "string" },
+          "primary_dimension": { "type": "string", "pattern": "^(D[1-9]|DAI)$" },
+          "sub_dimension": { "type": "string", "pattern": "^(D[1-9]|DAI)\\.[0-9]$" },
+          "cited_by": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "^(D[1-9]|DAI)$" },
+            "description": "Dimensiones que citan el hallazgo como contexto sin re-penalizar"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "duplicates_resolved": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kept", "merged", "rationale"],
+        "properties": {
+          "kept": { "type": "string", "pattern": "^H-[0-9]+$" },
+          "merged": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+          "rationale": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
